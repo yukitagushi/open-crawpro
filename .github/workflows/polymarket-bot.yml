@@ -28,14 +28,15 @@ jobs:
       - name: Run (once)
         working-directory: polymarket_bot
         env:
+          # Required env vars expected by polymarket_bot/infra.py
+          PRIVATE_KEY: ${{ secrets.POLYMARKET_PRIVATE_KEY }}
+          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+          CLOB_API_KEY: ${{ secrets.POLYMARKET_API_KEY }}
+          CLOB_API_SECRET: ${{ secrets.POLYMARKET_API_SECRET }}
+          CLOB_API_PASSPHRASE: ${{ secrets.POLYMARKET_API_PASSPHRASE }}
+          CLOB_HOST: ${{ secrets.POLYMARKET_HOST }}
+
           # Cloud DB
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # Polymarket/Polygon/etc (set these in GitHub repo secrets)
-          POLYMARKET_HOST: ${{ secrets.POLYMARKET_HOST }}
-          POLYMARKET_PRIVATE_KEY: ${{ secrets.POLYMARKET_PRIVATE_KEY }}
-          POLYMARKET_API_KEY: ${{ secrets.POLYMARKET_API_KEY }}
-          POLYMARKET_API_SECRET: ${{ secrets.POLYMARKET_API_SECRET }}
-          POLYMARKET_API_PASSPHRASE: ${{ secrets.POLYMARKET_API_PASSPHRASE }}
-          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
         run: |
           python run_bot_once.py
