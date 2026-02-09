@@ -1,0 +1,41 @@
+name: polymarket-bot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # every 5 minutes
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        working-directory: polymarket_bot
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run (once)
+        working-directory: polymarket_bot
+        env:
+          # Cloud DB
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Polymarket/Polygon/etc (set these in GitHub repo secrets)
+          POLYMARKET_HOST: ${{ secrets.POLYMARKET_HOST }}
+          POLYMARKET_PRIVATE_KEY: ${{ secrets.POLYMARKET_PRIVATE_KEY }}
+          POLYMARKET_API_KEY: ${{ secrets.POLYMARKET_API_KEY }}
+          POLYMARKET_API_SECRET: ${{ secrets.POLYMARKET_API_SECRET }}
+          POLYMARKET_API_PASSPHRASE: ${{ secrets.POLYMARKET_API_PASSPHRASE }}
+          POLYGON_RPC_URL: ${{ secrets.POLYGON_RPC_URL }}
+        run: |
+          python run_bot_once.py

@@ -45,3 +45,23 @@ source .venv311/bin/activate
 python -m py_compile infra.py
 python infra.py  # will fail until env vars are set and py-clob-client is installable
 ```
+
+## Scheduler mode (GitHub Actions)
+
+This repo includes a cron workflow that runs every 5 minutes:
+- `.github/workflows/polymarket-bot.yml`
+
+### Cloud DB (Postgres)
+
+For cron operation you should use Postgres (Neon/Supabase). Configure GitHub repo **Secrets**:
+- `DATABASE_URL`
+
+Schema is applied automatically at startup:
+- `polymarket_bot/schema_postgres.sql`
+
+### Entry points
+
+- Local loop (SQLite): `python run_bot.py`
+- Cron single-run (Postgres): `python run_bot_once.py`
+
+> Safety: no trading is executed by default.

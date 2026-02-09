@@ -6,3 +6,4 @@ python-dotenv
 pandas
 requests
 py-clob-client
+psycopg[binary]
