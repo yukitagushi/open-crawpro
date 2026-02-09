@@ -1,0 +1,8 @@
+# NOTE: py-clob-client requires Python >= 3.9.10.
+# On this Mac mini, system python is 3.9.6, so installing may fail until Python is upgraded.
+
+web3
+python-dotenv
+pandas
+requests
+py-clob-client
