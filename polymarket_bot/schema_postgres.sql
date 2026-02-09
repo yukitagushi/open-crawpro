@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS bot_run (
   error TEXT
 );
 
+-- optional extra metrics (safe to add over time)
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS discovered_count INTEGER;
+
 -- optional market registry
 CREATE TABLE IF NOT EXISTS market (
   id BIGSERIAL PRIMARY KEY,
@@ -19,6 +22,21 @@ CREATE TABLE IF NOT EXISTS market (
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- discovery snapshots (what the bot saw)
+CREATE TABLE IF NOT EXISTS discovered_market (
+  id BIGSERIAL PRIMARY KEY,
+  market_id TEXT NOT NULL,
+  question TEXT,
+  yes_token_id TEXT,
+  no_token_id TEXT,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  seen_count INTEGER NOT NULL DEFAULT 1,
+  UNIQUE(market_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_discovered_last_seen ON discovered_market(last_seen_at);
 
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY,

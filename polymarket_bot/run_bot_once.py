@@ -34,6 +34,26 @@ def main() -> None:
         for p in pairs[:5]:
             logger.info("%s | yes=%s no=%s", p.question, p.yes_token_id, p.no_token_id)
 
+        # Persist what we saw (for UI/analytics)
+        with conn.cursor() as cur:
+            for p in pairs:
+                cur.execute(
+                    """
+                    INSERT INTO discovered_market(market_id, question, yes_token_id, no_token_id)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (market_id)
+                    DO UPDATE SET
+                      question = EXCLUDED.question,
+                      yes_token_id = EXCLUDED.yes_token_id,
+                      no_token_id = EXCLUDED.no_token_id,
+                      last_seen_at = now(),
+                      seen_count = discovered_market.seen_count + 1
+                    """,
+                    (p.market_id, p.question, p.yes_token_id, p.no_token_id),
+                )
+            cur.execute("UPDATE bot_run SET discovered_count=%s WHERE run_id=%s", (len(pairs), run.run_id))
+        conn.commit()
+
         finish_run(conn, run, status="ok")
 
     except Exception as e:

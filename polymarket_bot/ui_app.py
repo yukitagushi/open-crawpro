@@ -75,6 +75,59 @@ with col2:
 
 st.divider()
 
+st.subheader("クラウドDBダッシュボード（Neon/Postgres）")
+st.caption("DATABASE_URL が設定されていれば、bot_run / discovered_market を可視化します")
+
+db_url_present = bool(os.getenv("DATABASE_URL"))
+if not db_url_present:
+    st.info("DATABASE_URL が未設定のため、DBダッシュボードは表示できません（GitHub ActionsではSecretsから設定済みの想定）")
+else:
+    try:
+        import pandas as pd
+        import psycopg
+
+        with psycopg.connect(os.getenv("DATABASE_URL")) as conn:
+            # latest runs
+            df_runs = pd.read_sql_query(
+                """
+                SELECT started_at, finished_at, status, discovered_count, error
+                FROM bot_run
+                ORDER BY started_at DESC
+                LIMIT 200
+                """,
+                conn,
+            )
+            st.write("直近の実行（bot_run）")
+            st.dataframe(df_runs, use_container_width=True)
+
+            if not df_runs.empty:
+                # timeseries chart
+                df_ts = df_runs.copy()
+                df_ts["started_at"] = pd.to_datetime(df_ts["started_at"])
+                df_ts = df_ts.sort_values("started_at")
+                if "discovered_count" in df_ts.columns:
+                    st.line_chart(df_ts.set_index("started_at")["discovered_count"], height=180)
+
+            # discovered markets
+            df_mk = pd.read_sql_query(
+                """
+                SELECT last_seen_at, seen_count, market_id, question, yes_token_id, no_token_id
+                FROM discovered_market
+                ORDER BY last_seen_at DESC
+                LIMIT 200
+                """,
+                conn,
+            )
+            st.write("直近の探索結果（discovered_market）")
+            st.dataframe(df_mk, use_container_width=True)
+
+            st.info("PnL（収益/勝敗）は、fills（約定）と position_snapshot（ポジション）が貯まり次第ここに追加します。")
+
+    except Exception as e:
+        st.error(f"DB読み込みに失敗: {e}")
+
+st.divider()
+
 st.subheader("Step2: マーケット探索（Gamma API）")
 st.caption("Gammaから取得するデータは『信頼できない入力』として扱います。")
 
