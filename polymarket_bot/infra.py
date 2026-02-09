@@ -91,15 +91,19 @@ class Infra:
                 f"Import error: {_CLOB_IMPORT_ERR}"
             )
 
-        # NOTE: ClobClient constructor signature can vary by version.
-        # Keep it explicit and update once we pin a working version.
+        # py-clob-client (0.34.x) expects:
+        #   ClobClient(host, chain_id=..., key=<private_key>, creds=ApiCreds(...))
+        from py_clob_client.clob_types import ApiCreds  # type: ignore
+
         self.clob = ClobClient(
-            host=self.cfg.clob_host,
+            self.cfg.clob_host,
             chain_id=self.cfg.chain_id,
-            private_key=self.cfg.private_key,
-            api_key=self.cfg.clob_api_key,
-            api_secret=self.cfg.clob_api_secret,
-            api_passphrase=self.cfg.clob_api_passphrase,
+            key=self.cfg.private_key,
+            creds=ApiCreds(
+                api_key=self.cfg.clob_api_key,
+                api_secret=self.cfg.clob_api_secret,
+                api_passphrase=self.cfg.clob_api_passphrase,
+            ),
         )
 
     def connect(self) -> None:
