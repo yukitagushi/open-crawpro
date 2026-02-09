@@ -1,0 +1,9 @@
+.DS_Store
+polymarket_bot/.venv*/
+polymarket_bot/.venv/
+polymarket_bot/.venv311/
+polymarket_bot/__pycache__/
+polymarket_bot/tests/__pycache__/
+polymarket_bot/**/*.pyc
+polymarket_bot/logs/
+polymarket_bot.zip
