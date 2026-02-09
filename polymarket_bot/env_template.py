@@ -11,7 +11,7 @@ TEMPLATE = """# Wallet
 PRIVATE_KEY=
 POLYGON_RPC_URL=
 
-# Polymarket CLOB credentials (Trade Only 권限想定)
+# Polymarket CLOB credentials
 CLOB_API_KEY=
 CLOB_API_SECRET=
 CLOB_API_PASSPHRASE=

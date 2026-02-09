@@ -40,7 +40,8 @@ CHAIN_ID=137
 
 ## Run quick checks (no secrets needed)
 ```bash
-source .venv/bin/activate
+# Use the Python 3.11 venv
+source .venv311/bin/activate
 python -m py_compile infra.py
 python infra.py  # will fail until env vars are set and py-clob-client is installable
 ```
