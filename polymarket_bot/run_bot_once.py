@@ -64,8 +64,27 @@ def main() -> None:
         infra = Infra(cfg)
         infra.connect()
 
-        pairs = discover_markets(max_events=200)
-        logger.info("discovered %d candidate markets", len(pairs))
+        # Discovery filters (default: broad so we always find something)
+        want_15min = _env_bool("DISCOVERY_15MIN", False)
+        want_crypto = _env_bool("DISCOVERY_CRYPTO_TAG", False)
+        require_open = _env_bool("DISCOVERY_REQUIRE_OPEN", True)
+        require_liq = _env_bool("DISCOVERY_REQUIRE_LIQUIDITY", True)
+
+        pairs = discover_markets(
+            want_15min=want_15min,
+            want_crypto_tag=want_crypto,
+            require_open=require_open,
+            require_liquidity=require_liq,
+            max_events=800,
+        )
+        logger.info(
+            "discovered %d candidate markets (filters: 15min=%s crypto=%s open=%s liq=%s)",
+            len(pairs),
+            want_15min,
+            want_crypto,
+            require_open,
+            require_liq,
+        )
         for p in pairs[:5]:
             logger.info("%s | yes=%s no=%s", p.question, p.yes_token_id, p.no_token_id)
 
