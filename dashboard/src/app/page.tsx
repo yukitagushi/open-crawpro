@@ -74,6 +74,17 @@ export default async function Page() {
   const fillAgg = await sql<{ fills: number }>(`SELECT COUNT(*)::int as fills FROM fills`);
   const fillsCount = fillAgg?.[0]?.fills ?? 0;
 
+  // planned / dry-run orders
+  const plans = await sql<{ created_at: any; status: string; condition_id: string | null; token_id: string | null; side: string; price: number; size: number }>(
+    `
+    SELECT created_at, status, condition_id, token_id, side, price, size
+    FROM orders
+    WHERE status IN ('dry_run','submitted')
+    ORDER BY created_at DESC
+    LIMIT 20
+    `
+  );
+
   return (
     <main className="container">
       <div className="grid" style={{ marginBottom: 12 }}>
@@ -142,6 +153,41 @@ export default async function Page() {
                     <td>{(r as any).trades_fetched ?? '-'}</td>
                     <td>{(r as any).fills_inserted ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card" style={{ gridColumn: 'span 12' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>Planned orders (DRY_RUN)</div>
+            <div className="muted">created / status / market_id / side / price / size</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>created</th>
+                  <th>status</th>
+                  <th>market_id</th>
+                  <th>side</th>
+                  <th>price</th>
+                  <th>size</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((p, i) => (
+                  <tr key={i}>
+                    <td>{fmt(p.created_at)}</td>
+                    <td>{p.status === 'dry_run' ? <span className="pill-ok"><span className="dot" /> DRY_RUN</span> : p.status}</td>
+                    <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', fontSize: 12 }}>
+                      {p.condition_id ?? ''}
+                    </td>
+                    <td>{p.side}</td>
+                    <td>{Number(p.price).toFixed(4)}</td>
+                    <td>{Number(p.size).toFixed(4)}</td>
                   </tr>
                 ))}
               </tbody>

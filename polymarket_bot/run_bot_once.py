@@ -10,6 +10,8 @@ No trading is performed.
 from __future__ import annotations
 
 import logging
+import os
+import uuid
 
 from db_pg import connect, finish_run, init_db, start_run
 from gamma import discover_markets
@@ -21,6 +23,23 @@ def _as_float(v):
         return float(v)
     except Exception:
         return None
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _env_float(name: str, default: float) -> float:
+    v = os.getenv(name)
+    if not v:
+        return default
+    try:
+        return float(v)
+    except Exception:
+        return default
 
 
 def _guess_ts(trade: dict):
@@ -50,6 +69,33 @@ def main() -> None:
         for p in pairs[:5]:
             logger.info("%s | yes=%s no=%s", p.question, p.yes_token_id, p.no_token_id)
 
+        # ---- Minimal trade plan (DRY_RUN first) ----
+        DRY_RUN = _env_bool("DRY_RUN", True)
+        MAX_NOTIONAL_USD = _env_float("MAX_NOTIONAL_USD", 1.0)
+        MAX_PRICE = _env_float("MAX_PRICE", 0.55)
+
+        chosen = pairs[0] if pairs else None
+        plan = None
+        if chosen is not None and infra.clob is not None:
+            try:
+                ob = infra.clob.get_order_book(chosen.yes_token_id)
+                best_ask = _as_float(ob.asks[0].price) if getattr(ob, "asks", None) else None
+                if best_ask is not None:
+                    price = min(best_ask, MAX_PRICE)
+                    size = MAX_NOTIONAL_USD / max(price, 1e-9)
+                    plan = {
+                        "market_id": chosen.market_id,
+                        "question": chosen.question,
+                        "token_id": chosen.yes_token_id,
+                        "side": "buy",
+                        "best_ask": best_ask,
+                        "limit_price": price,
+                        "size": size,
+                        "dry_run": DRY_RUN,
+                    }
+            except Exception as e:
+                logger.warning("orderbook/plan failed: %s", e)
+
         # Persist what we saw (for UI/analytics)
         with conn.cursor() as cur:
             for p in pairs:
@@ -66,6 +112,26 @@ def main() -> None:
                       seen_count = discovered_market.seen_count + 1
                     """,
                     (p.market_id, p.question, p.yes_token_id, p.no_token_id),
+                )
+
+            # Save planned order (dry-run) to orders table
+            if plan is not None:
+                client_order_id = f"plan-{run.run_id}-{uuid.uuid4().hex[:8]}"
+                cur.execute(
+                    """
+                    INSERT INTO orders(client_order_id, condition_id, token_id, side, price, size, status, raw_request_json)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                    """,
+                    (
+                        client_order_id,
+                        plan["market_id"],
+                        plan["token_id"],
+                        plan["side"],
+                        float(plan["limit_price"]),
+                        float(plan["size"]),
+                        "dry_run" if DRY_RUN else "submitted",
+                        __import__("json").dumps(plan),
+                    ),
                 )
 
             # Fetch user trades (used as fills) and store them.

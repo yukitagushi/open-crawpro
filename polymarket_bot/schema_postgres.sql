@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_condition ON orders(condition_id);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 
 CREATE TABLE IF NOT EXISTS fills (
   id BIGSERIAL PRIMARY KEY,
