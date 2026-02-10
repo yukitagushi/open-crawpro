@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_condition ON orders(condition_id);
 CREATE TABLE IF NOT EXISTS fills (
   id BIGSERIAL PRIMARY KEY,
   fill_id TEXT UNIQUE,
-  order_client_order_id TEXT NOT NULL,
+  order_client_order_id TEXT,
   order_id TEXT,
   condition_id TEXT,
   token_id TEXT,
@@ -70,12 +70,12 @@ CREATE TABLE IF NOT EXISTS fills (
   fee DOUBLE PRECISION,
   filled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  raw_json JSONB,
-  CONSTRAINT fk_fills_order
-    FOREIGN KEY(order_client_order_id)
-    REFERENCES orders(client_order_id)
-    ON DELETE CASCADE
+  raw_json JSONB
 );
+
+-- allow ingesting fills even when we don't have a matching local order record
+ALTER TABLE fills DROP CONSTRAINT IF EXISTS fk_fills_order;
+ALTER TABLE fills ALTER COLUMN order_client_order_id DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_fills_order ON fills(order_client_order_id);
 

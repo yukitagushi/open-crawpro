@@ -70,6 +70,10 @@ export default async function Page() {
     .reverse()
     .map((r) => (typeof r.discovered_count === 'number' ? r.discovered_count : 0));
 
+  // trades (fills)
+  const fillAgg = await sql<{ fills: number }>(`SELECT COUNT(*)::int as fills FROM fills`);
+  const fillsCount = fillAgg?.[0]?.fills ?? 0;
+
   return (
     <main className="container">
       <div className="grid" style={{ marginBottom: 12 }}>
@@ -89,6 +93,11 @@ export default async function Page() {
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{latest ? fmt(latest) : '-'}</div>
           <div className="kpiLabel">latest run</div>
+        </div>
+
+        <div className="card" style={{ gridColumn: 'span 4' }}>
+          <div className="kpi">{fillsCount}</div>
+          <div className="kpiLabel">fills (trades)</div>
         </div>
 
         <div className="card" style={{ gridColumn: 'span 12' }}>

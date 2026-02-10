@@ -15,6 +15,22 @@ from db_pg import connect, finish_run, init_db, start_run
 from gamma import discover_markets
 from infra import Infra, load_config_from_env
 
+
+def _as_float(v):
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+def _guess_ts(trade: dict):
+    # Try common timestamp fields; if none, return None
+    for k in ("timestamp", "created_at", "createdAt", "time", "ts"):
+        if k in trade and trade[k] is not None:
+            return trade[k]
+    return None
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("run_bot_once")
 
@@ -51,7 +67,58 @@ def main() -> None:
                     """,
                     (p.market_id, p.question, p.yes_token_id, p.no_token_id),
                 )
-            cur.execute("UPDATE bot_run SET discovered_count=%s WHERE run_id=%s", (len(pairs), run.run_id))
+
+            # Fetch user trades (used as fills) and store them.
+            # NOTE: TradeParams currently supports maker_address filter.
+            from py_clob_client.clob_types import TradeParams  # type: ignore
+
+            trades = infra.clob.get_trades(TradeParams(maker_address=infra.address))
+            inserted = 0
+            for t in trades:
+                if not isinstance(t, dict):
+                    continue
+                fill_id = t.get("id") or t.get("trade_id") or t.get("fill_id")
+                if not fill_id:
+                    continue
+
+                price = _as_float(t.get("price"))
+                size = _as_float(t.get("size") or t.get("quantity"))
+                side = (t.get("side") or t.get("taker_side") or t.get("maker_side") or "").lower() or "unknown"
+
+                # Best-effort mapping
+                order_id = t.get("order_id") or t.get("orderId")
+                condition_id = t.get("market") or t.get("condition_id") or t.get("conditionId")
+                token_id = t.get("asset_id") or t.get("token_id") or t.get("tokenId")
+                fee = _as_float(t.get("fee"))
+
+                if price is None or size is None:
+                    continue
+
+                cur.execute(
+                    """
+                    INSERT INTO fills(fill_id, order_id, condition_id, token_id, side, price, size, fee, raw_json)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                    ON CONFLICT (fill_id) DO NOTHING
+                    """,
+                    (
+                        str(fill_id),
+                        str(order_id) if order_id is not None else None,
+                        str(condition_id) if condition_id is not None else None,
+                        str(token_id) if token_id is not None else None,
+                        side,
+                        float(price),
+                        float(size),
+                        float(fee) if fee is not None else None,
+                        __import__("json").dumps(t),
+                    ),
+                )
+                inserted += cur.rowcount
+
+            cur.execute(
+                "UPDATE bot_run SET discovered_count=%s WHERE run_id=%s",
+                (len(pairs), run.run_id),
+            )
+
         conn.commit()
 
         finish_run(conn, run, status="ok")
