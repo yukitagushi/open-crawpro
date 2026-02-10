@@ -72,14 +72,27 @@ def main() -> None:
             # NOTE: TradeParams currently supports maker_address filter.
             from py_clob_client.clob_types import TradeParams  # type: ignore
 
-            trades = infra.clob.get_trades(TradeParams(maker_address=infra.address))
+            # Try a few variants to avoid missing fills due to filtering differences.
+            trades = []
+            try:
+                trades = infra.clob.get_trades(TradeParams(maker_address=infra.address))
+            except Exception:
+                trades = []
+
+            if not trades:
+                try:
+                    trades = infra.clob.get_trades(TradeParams())
+                except Exception:
+                    trades = []
+
             inserted = 0
             for t in trades:
                 if not isinstance(t, dict):
                     continue
                 fill_id = t.get("id") or t.get("trade_id") or t.get("fill_id")
                 if not fill_id:
-                    continue
+                    # as a last resort, derive a stable hash-ish id
+                    fill_id = __import__("hashlib").sha256(__import__("json").dumps(t, sort_keys=True).encode("utf-8")).hexdigest()
 
                 price = _as_float(t.get("price"))
                 size = _as_float(t.get("size") or t.get("quantity"))
@@ -115,8 +128,8 @@ def main() -> None:
                 inserted += cur.rowcount
 
             cur.execute(
-                "UPDATE bot_run SET discovered_count=%s WHERE run_id=%s",
-                (len(pairs), run.run_id),
+                "UPDATE bot_run SET discovered_count=%s, trades_fetched=%s, fills_inserted=%s WHERE run_id=%s",
+                (len(pairs), len(trades), inserted, run.run_id),
             )
 
         conn.commit()

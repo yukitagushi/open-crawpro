@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS bot_run (
 
 -- optional extra metrics (safe to add over time)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS discovered_count INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS trades_fetched INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS fills_inserted INTEGER;
 
 -- optional market registry
 CREATE TABLE IF NOT EXISTS market (

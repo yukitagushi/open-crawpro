@@ -45,9 +45,9 @@ export default async function Page() {
     );
   }
 
-  const runs = await sql<BotRunRow>(
+  const runs = await sql<BotRunRow & { trades_fetched?: number | null; fills_inserted?: number | null }>(
     `
-    SELECT started_at, finished_at, status, discovered_count, error
+    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, error
     FROM bot_run
     ORDER BY started_at DESC
     LIMIT 50
@@ -122,6 +122,8 @@ export default async function Page() {
                   <th>started</th>
                   <th>status</th>
                   <th>discovered</th>
+                  <th>trades_fetched</th>
+                  <th>fills_inserted</th>
                   <th>error</th>
                 </tr>
               </thead>
@@ -137,6 +139,8 @@ export default async function Page() {
                       )}
                     </td>
                     <td>{r.discovered_count ?? '-'}</td>
+                    <td>{(r as any).trades_fetched ?? '-'}</td>
+                    <td>{(r as any).fills_inserted ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>
                   </tr>
                 ))}
