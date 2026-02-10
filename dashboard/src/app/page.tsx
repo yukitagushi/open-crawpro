@@ -20,10 +20,11 @@ type DiscoveredRow = {
   no_token_id: string | null;
 };
 
-function fmt(ts: string | null) {
+function fmt(ts: any) {
   if (!ts) return '-';
-  // Keep it simple; Vercel locale differs
-  return ts.replace('T', ' ').replace('Z', '');
+  // pg can return Date objects for timestamptz
+  const s = ts instanceof Date ? ts.toISOString() : String(ts);
+  return s.replace('T', ' ').replace('Z', '');
 }
 
 export default async function Page() {
