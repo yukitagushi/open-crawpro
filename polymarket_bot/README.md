@@ -49,6 +49,29 @@ python -m py_compile infra.py
 python infra.py  # will fail until env vars are set and py-clob-client is installable
 ```
 
+## Local crawler daemon (Mac mini)
+
+This mode crawls public RSS/blog sources **directly from the Mac mini** and stores them in Postgres.
+
+Requirements:
+- `DATABASE_URL` must be set in the environment (Actions secrets do NOT apply to local processes).
+
+Start (background):
+```bash
+cd polymarket_bot
+source .venv311/bin/activate
+./scripts/run_crawler.sh
+# logs: polymarket_bot/logs/crawler.log
+```
+
+Stop:
+```bash
+./scripts/stop_crawler.sh
+```
+
+Interval:
+- `CRAWL_INTERVAL_SECONDS=60` (default)
+
 ## Scheduler mode (GitHub Actions)
 
 This repo includes a cron workflow that runs every 5 minutes:
