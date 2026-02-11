@@ -45,6 +45,17 @@ export default async function Page() {
     );
   }
 
+  // bot_run columns can evolve; keep dashboard resilient even if migrations lag behind.
+  const cols = await sql<{ column_name: string }>(
+    `
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='bot_run'
+    `
+  );
+  const colset = new Set(cols.map((c) => c.column_name));
+  const opt = (name: string, cast: string) => (colset.has(name) ? name : `NULL::${cast} AS ${name}`);
+
   const runs = await sql<
     BotRunRow & {
       trades_fetched?: number | null;
@@ -57,7 +68,19 @@ export default async function Page() {
     }
   >(
     `
-    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, dry_run, max_notional_usd, max_price, paper_plans_count, paper_fills_inserted, error
+    SELECT
+      started_at,
+      finished_at,
+      status,
+      discovered_count,
+      ${opt('trades_fetched', 'int')},
+      ${opt('fills_inserted', 'int')},
+      ${opt('dry_run', 'bool')},
+      ${opt('max_notional_usd', 'float8')},
+      ${opt('max_price', 'float8')},
+      ${opt('paper_plans_count', 'int')},
+      ${opt('paper_fills_inserted', 'int')},
+      error
     FROM bot_run
     ORDER BY started_at DESC
     LIMIT 50
