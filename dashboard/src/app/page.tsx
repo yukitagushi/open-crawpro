@@ -68,6 +68,7 @@ export default async function Page() {
       content_items_inserted?: number | null;
       content_injection_flagged?: number | null;
       signals_inserted?: number | null;
+      signal_snapshots_inserted?: number | null;
     }
   >(
     `
@@ -86,6 +87,7 @@ export default async function Page() {
       ${opt('content_items_inserted', 'int')},
       ${opt('content_injection_flagged', 'int')},
       ${opt('signals_inserted', 'int')},
+      ${opt('signal_snapshots_inserted', 'int')},
       error
     FROM bot_run
     ORDER BY started_at DESC
@@ -189,6 +191,7 @@ export default async function Page() {
                   <th>記事+</th>
                   <th>注入+</th>
                   <th>シグ+</th>
+                  <th>スナップ+</th>
                   <th>エラー</th>
                 </tr>
               </thead>
@@ -214,6 +217,7 @@ export default async function Page() {
                     <td>{(r as any).content_items_inserted ?? '-'}</td>
                     <td>{(r as any).content_injection_flagged ?? '-'}</td>
                     <td>{(r as any).signals_inserted ?? '-'}</td>
+                    <td>{(r as any).signal_snapshots_inserted ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>
                   </tr>
                 ))}

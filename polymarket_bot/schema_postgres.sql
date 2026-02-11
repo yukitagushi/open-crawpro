@@ -20,6 +20,7 @@ ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_fills_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_items_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_injection_flagged INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS signals_inserted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS signal_snapshots_inserted INTEGER;
 
 -- config snapshot (safe defaults; helps debugging)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;
@@ -185,3 +186,19 @@ CREATE TABLE IF NOT EXISTS content_signal (
 );
 
 CREATE INDEX IF NOT EXISTS idx_content_signal_score ON content_signal(score);
+
+CREATE TABLE IF NOT EXISTS signal_market_snapshot (
+  id BIGSERIAL PRIMARY KEY,
+  source_key TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  market_id TEXT NOT NULL,
+  token_id TEXT NOT NULL,
+  best_bid DOUBLE PRECISION,
+  best_ask DOUBLE PRECISION,
+  mid DOUBLE PRECISION,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_json JSONB,
+  UNIQUE(source_key, item_id, market_id, token_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_signal_snapshot_fetched ON signal_market_snapshot(fetched_at);

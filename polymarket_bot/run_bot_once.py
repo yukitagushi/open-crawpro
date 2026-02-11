@@ -137,6 +137,52 @@ def main() -> None:
                         )
             conn.commit()
 
+            # Snapshot market data at signal time (Phase 2: validate)
+            signal_snapshots_inserted = 0
+            try:
+                if infra.clob is not None and new_signal_rows and plans:
+                    # Use the allowlisted market's YES token_id (from plans[0]) for now.
+                    # (We can expand to mapping later.)
+                    market_id = str(plans[0].get("market_id") or "")
+                    token_id = str(plans[0].get("token_id") or "")
+                    if market_id and token_id:
+                        ob = infra.clob.get_order_book(token_id)
+                        best_bid = _as_float(ob.bids[0].price) if getattr(ob, "bids", None) else None
+                        best_ask = _as_float(ob.asks[0].price) if getattr(ob, "asks", None) else None
+                        mid = None
+                        if best_bid is not None and best_ask is not None:
+                            mid = (float(best_bid) + float(best_ask)) / 2.0
+                        raw = {
+                            "market_id": market_id,
+                            "token_id": token_id,
+                            "best_bid": best_bid,
+                            "best_ask": best_ask,
+                            "mid": mid,
+                        }
+                        with conn.cursor() as cur:
+                            for r in new_signal_rows:
+                                cur.execute(
+                                    """
+                                    INSERT INTO signal_market_snapshot(source_key, item_id, market_id, token_id, best_bid, best_ask, mid, raw_json)
+                                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                                    ON CONFLICT (source_key, item_id, market_id, token_id) DO NOTHING
+                                    """,
+                                    (
+                                        r["source"],
+                                        r["item_id"],
+                                        market_id,
+                                        token_id,
+                                        float(best_bid) if best_bid is not None else None,
+                                        float(best_ask) if best_ask is not None else None,
+                                        float(mid) if mid is not None else None,
+                                        __import__("json").dumps(raw),
+                                    ),
+                                )
+                                signal_snapshots_inserted += cur.rowcount
+                        conn.commit()
+            except Exception as e:
+                logger.warning("signal snapshot failed: %s", e)
+
             # Notify Slack (optional) if new bullish signals were inserted
             webhook = (os.getenv("SLACK_WEBHOOK_URL") or "").strip()
             if webhook and signals_inserted > 0:
@@ -396,7 +442,8 @@ def main() -> None:
                     paper_fills_inserted=%s,
                     content_items_inserted=%s,
                     content_injection_flagged=%s,
-                    signals_inserted=%s
+                    signals_inserted=%s,
+                    signal_snapshots_inserted=%s
                 WHERE run_id=%s
                 """,
                 (
@@ -411,6 +458,7 @@ def main() -> None:
                     int(content_items_inserted),
                     int(content_injection_flagged),
                     int(signals_inserted),
+                    int(signal_snapshots_inserted),
                     run.run_id,
                 ),
             )
