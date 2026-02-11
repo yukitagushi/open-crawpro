@@ -52,5 +52,6 @@ jobs:
           # Optional: paper-trade data collection
           N_MARKETS_PER_RUN: "10"
           MARKET_ALLOWLIST: "1362511"  # set to a market_id/condition_id (comma-separated) to pin targets
+          MARKET_SLUG: "btc-updown-15m-1770806700"  # optional helper to fetch the pinned market via Gamma
         run: |
           python run_bot_once.py

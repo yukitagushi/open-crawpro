@@ -14,7 +14,7 @@ import os
 import uuid
 
 from db_pg import connect, finish_run, init_db, start_run
-from gamma import discover_markets
+from gamma import TokenPair, discover_markets, extract_yes_no_token_ids, fetch_events
 from infra import Infra, load_config_from_env
 from content_ingest import ingest_default_feeds
 from signal import score_text
@@ -221,6 +221,36 @@ def main() -> None:
         allow = {x.strip() for x in allowlist_raw.split(",") if x.strip()} if allowlist_raw else set()
         if allow:
             pairs = [p for p in pairs if (p.market_id in allow)]
+
+            # If discovery didn't surface the pinned market (pagination), try fetching it directly via Gamma slug.
+            if not pairs:
+                slug = (os.getenv("MARKET_SLUG") or "").strip()
+                if slug:
+                    try:
+                        evs = fetch_events(limit=1, offset=0, params={"slug": slug})
+                        if evs and isinstance(evs[0], dict):
+                            ev = evs[0]
+                            markets = ev.get("markets") or []
+                            for m in markets:
+                                if not isinstance(m, dict):
+                                    continue
+                                mid = str(m.get("id") or m.get("market_id") or m.get("conditionId") or "")
+                                if mid not in allow:
+                                    continue
+                                yes, no = extract_yes_no_token_ids(m)
+                                if not yes or not no:
+                                    continue
+                                q = (ev.get("title") or ev.get("question") or "").strip() or "(no title)"
+                                pairs.append(
+                                    TokenPair(
+                                        market_id=mid,
+                                        question=q,
+                                        yes_token_id=str(yes),
+                                        no_token_id=str(no),
+                                    )
+                                )
+                    except Exception as e:
+                        logger.warning("gamma slug fetch failed: %s", e)
 
         # How many markets to generate paper plans for
         N_MARKETS_PER_RUN = int(os.getenv("N_MARKETS_PER_RUN") or "1")
