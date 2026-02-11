@@ -65,6 +65,8 @@ export default async function Page() {
       max_price?: number | null;
       paper_plans_count?: number | null;
       paper_fills_inserted?: number | null;
+      content_items_inserted?: number | null;
+      content_injection_flagged?: number | null;
     }
   >(
     `
@@ -80,6 +82,8 @@ export default async function Page() {
       ${opt('max_price', 'float8')},
       ${opt('paper_plans_count', 'int')},
       ${opt('paper_fills_inserted', 'int')},
+      ${opt('content_items_inserted', 'int')},
+      ${opt('content_injection_flagged', 'int')},
       error
     FROM bot_run
     ORDER BY started_at DESC
@@ -180,6 +184,8 @@ export default async function Page() {
                   <th>fills_inserted</th>
                   <th>paper_plans</th>
                   <th>paper_fills+</th>
+                  <th>content+</th>
+                  <th>inj+</th>
                   <th>error</th>
                 </tr>
               </thead>
@@ -202,6 +208,8 @@ export default async function Page() {
                     <td>{(r as any).fills_inserted ?? '-'}</td>
                     <td>{(r as any).paper_plans_count ?? '-'}</td>
                     <td>{(r as any).paper_fills_inserted ?? '-'}</td>
+                    <td>{(r as any).content_items_inserted ?? '-'}</td>
+                    <td>{(r as any).content_injection_flagged ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>
                   </tr>
                 ))}

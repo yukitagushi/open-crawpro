@@ -16,6 +16,7 @@ import uuid
 from db_pg import connect, finish_run, init_db, start_run
 from gamma import discover_markets
 from infra import Infra, load_config_from_env
+from content_ingest import ingest_default_feeds
 
 
 def _as_float(v):
@@ -78,6 +79,14 @@ def main() -> None:
             require_liquidity=require_liq,
             max_events=800,
         )
+
+        # ---- Content ingest (RSS/blog) ----
+        content_items_inserted, content_injection_flagged = (0, 0)
+        try:
+            content_items_inserted, content_injection_flagged = ingest_default_feeds(conn)
+            conn.commit()
+        except Exception as e:
+            logger.warning("content ingest failed: %s", e)
         logger.info(
             "discovered %d candidate markets (filters: 15min=%s crypto=%s open=%s liq=%s)",
             len(pairs),
@@ -320,7 +329,9 @@ def main() -> None:
                     max_notional_usd=%s,
                     max_price=%s,
                     paper_plans_count=%s,
-                    paper_fills_inserted=%s
+                    paper_fills_inserted=%s,
+                    content_items_inserted=%s,
+                    content_injection_flagged=%s
                 WHERE run_id=%s
                 """,
                 (
@@ -332,6 +343,8 @@ def main() -> None:
                     float(MAX_PRICE),
                     len(plans),
                     int(paper_fills_inserted),
+                    int(content_items_inserted),
+                    int(content_injection_flagged),
                     run.run_id,
                 ),
             )

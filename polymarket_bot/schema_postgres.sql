@@ -17,6 +17,8 @@ ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS trades_fetched INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS fills_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_plans_count INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_fills_inserted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_items_inserted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_injection_flagged INTEGER;
 
 -- config snapshot (safe defaults; helps debugging)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;
@@ -133,3 +135,39 @@ CREATE TABLE IF NOT EXISTS paper_position_snapshot (
 );
 
 CREATE INDEX IF NOT EXISTS idx_paper_pos_token ON paper_position_snapshot(token_id);
+
+-- --------------------
+-- Content ingestion (RSS/blog/newsletters)
+-- --------------------
+
+CREATE TABLE IF NOT EXISTS content_source (
+  id BIGSERIAL PRIMARY KEY,
+  source_key TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL DEFAULT 'rss',
+  title TEXT,
+  url TEXT,
+  feed_url TEXT,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS content_item (
+  id BIGSERIAL PRIMARY KEY,
+  source_key TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  url TEXT,
+  title TEXT,
+  author TEXT,
+  summary TEXT,
+  content_text TEXT,
+  published_at TIMESTAMPTZ,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  injection_detected BOOLEAN NOT NULL DEFAULT FALSE,
+  injection_excerpt TEXT,
+  raw_json JSONB,
+  UNIQUE(source_key, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_item_published ON content_item(published_at);
+CREATE INDEX IF NOT EXISTS idx_content_item_injection ON content_item(injection_detected);
