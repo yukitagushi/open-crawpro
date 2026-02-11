@@ -153,6 +153,43 @@ def main() -> None:
                     ),
                 )
 
+                # ---- Paper-trade simulation (Phase B) ----
+                # If DRY_RUN, we can simulate a fill using current best_ask.
+                # This is a simple, conservative model: a BUY limit fills immediately iff limit_price >= best_ask.
+                if DRY_RUN and plan.get("best_ask") is not None:
+                    try:
+                        best_ask = float(plan["best_ask"])
+                        limit_price = float(plan["limit_price"])
+                        size = float(plan["size"])
+                        if plan.get("side") == "buy" and limit_price >= best_ask:
+                            paper_fill_id = f"paper-{client_order_id}"  # stable
+                            paper = {
+                                **plan,
+                                "paper_fill_id": paper_fill_id,
+                                "fill_price": best_ask,
+                                "fill_size": size,
+                                "fill_rule": "limit>=best_ask",
+                            }
+                            cur.execute(
+                                """
+                                INSERT INTO paper_fills(paper_fill_id, client_order_id, condition_id, token_id, side, price, size, raw_json)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                                ON CONFLICT (paper_fill_id) DO NOTHING
+                                """,
+                                (
+                                    paper_fill_id,
+                                    client_order_id,
+                                    plan["market_id"],
+                                    plan["token_id"],
+                                    plan["side"],
+                                    float(best_ask),
+                                    float(size),
+                                    __import__("json").dumps(paper),
+                                ),
+                            )
+                    except Exception as e:
+                        logger.warning("paper-trade simulation failed: %s", e)
+
             # Fetch user trades (used as fills) and store them.
             # NOTE: TradeParams currently supports maker_address filter.
             from py_clob_client.clob_types import TradeParams  # type: ignore
@@ -169,6 +206,50 @@ def main() -> None:
                     trades = infra.clob.get_trades(TradeParams())
                 except Exception:
                     trades = []
+
+            # Update paper position snapshot (best-effort)
+            try:
+                if plan is not None and DRY_RUN:
+                    token_id = plan.get("token_id")
+                    if token_id:
+                        cur.execute(
+                            "SELECT side, price, size FROM paper_fills WHERE token_id=%s ORDER BY created_at ASC",
+                            (str(token_id),),
+                        )
+                        rows = cur.fetchall() or []
+                        pos = 0.0
+                        cost = 0.0
+                        for side, price, size in rows:
+                            side = (side or "").lower()
+                            price = float(price)
+                            size = float(size)
+                            if side == "buy":
+                                pos += size
+                                cost += price * size
+                            elif side == "sell":
+                                pos -= size
+                                cost -= price * size
+                        avg = (cost / pos) if pos > 1e-12 else None
+                        snap = {
+                            "token_id": str(token_id),
+                            "position_size": pos,
+                            "avg_entry_price": avg,
+                            "fills": len(rows),
+                        }
+                        cur.execute(
+                            """
+                            INSERT INTO paper_position_snapshot(token_id, position_size, avg_entry_price, raw_json)
+                            VALUES (%s,%s,%s,%s::jsonb)
+                            """,
+                            (
+                                str(token_id),
+                                float(pos),
+                                float(avg) if avg is not None else None,
+                                __import__("json").dumps(snap),
+                            ),
+                        )
+            except Exception as e:
+                logger.warning("paper position snapshot failed: %s", e)
 
             inserted = 0
             for t in trades:

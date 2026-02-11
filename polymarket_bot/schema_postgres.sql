@@ -99,3 +99,35 @@ CREATE TABLE IF NOT EXISTS position_snapshot (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pos_token ON position_snapshot(token_id);
+
+-- --------------------
+-- Paper trade (simulated fills/positions)
+-- --------------------
+
+CREATE TABLE IF NOT EXISTS paper_fills (
+  id BIGSERIAL PRIMARY KEY,
+  paper_fill_id TEXT UNIQUE,
+  client_order_id TEXT,
+  condition_id TEXT,
+  token_id TEXT,
+  side TEXT NOT NULL,
+  price DOUBLE PRECISION NOT NULL,
+  size DOUBLE PRECISION NOT NULL,
+  filled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_json JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_fills_token ON paper_fills(token_id);
+CREATE INDEX IF NOT EXISTS idx_paper_fills_created ON paper_fills(created_at);
+
+CREATE TABLE IF NOT EXISTS paper_position_snapshot (
+  id BIGSERIAL PRIMARY KEY,
+  token_id TEXT,
+  position_size DOUBLE PRECISION NOT NULL,
+  avg_entry_price DOUBLE PRECISION,
+  snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_json JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_pos_token ON paper_position_snapshot(token_id);
