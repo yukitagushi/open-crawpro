@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS bot_run (
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS discovered_count INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS trades_fetched INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS fills_inserted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_plans_count INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_fills_inserted INTEGER;
 
 -- config snapshot (safe defaults; helps debugging)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;

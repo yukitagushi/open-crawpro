@@ -52,10 +52,12 @@ export default async function Page() {
       dry_run?: boolean | null;
       max_notional_usd?: number | null;
       max_price?: number | null;
+      paper_plans_count?: number | null;
+      paper_fills_inserted?: number | null;
     }
   >(
     `
-    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, dry_run, max_notional_usd, max_price, error
+    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, dry_run, max_notional_usd, max_price, paper_plans_count, paper_fills_inserted, error
     FROM bot_run
     ORDER BY started_at DESC
     LIMIT 50
@@ -153,6 +155,8 @@ export default async function Page() {
                   <th>max_price</th>
                   <th>trades_fetched</th>
                   <th>fills_inserted</th>
+                  <th>paper_plans</th>
+                  <th>paper_fills+</th>
                   <th>error</th>
                 </tr>
               </thead>
@@ -173,6 +177,8 @@ export default async function Page() {
                     <td>{(r as any).max_price == null ? '-' : Number((r as any).max_price).toFixed(4)}</td>
                     <td>{(r as any).trades_fetched ?? '-'}</td>
                     <td>{(r as any).fills_inserted ?? '-'}</td>
+                    <td>{(r as any).paper_plans_count ?? '-'}</td>
+                    <td>{(r as any).paper_fills_inserted ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>
                   </tr>
                 ))}

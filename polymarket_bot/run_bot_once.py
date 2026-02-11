@@ -147,6 +147,7 @@ def main() -> None:
                 )
 
             # Save planned order(s) (dry-run) to orders table
+            paper_fills_inserted = 0
             for plan in plans:
                 client_order_id = f"plan-{run.run_id}-{uuid.uuid4().hex[:8]}"
                 cur.execute(
@@ -200,6 +201,7 @@ def main() -> None:
                                     __import__("json").dumps(paper),
                                 ),
                             )
+                            paper_fills_inserted += cur.rowcount
                     except Exception as e:
                         logger.warning("paper-trade simulation failed: %s", e)
 
@@ -315,7 +317,9 @@ def main() -> None:
                     fills_inserted=%s,
                     dry_run=%s,
                     max_notional_usd=%s,
-                    max_price=%s
+                    max_price=%s,
+                    paper_plans_count=%s,
+                    paper_fills_inserted=%s
                 WHERE run_id=%s
                 """,
                 (
@@ -325,6 +329,8 @@ def main() -> None:
                     bool(DRY_RUN),
                     float(MAX_NOTIONAL_USD),
                     float(MAX_PRICE),
+                    len(plans),
+                    int(paper_fills_inserted),
                     run.run_id,
                 ),
             )
