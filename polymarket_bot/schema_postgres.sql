@@ -16,6 +16,11 @@ ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS discovered_count INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS trades_fetched INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS fills_inserted INTEGER;
 
+-- config snapshot (safe defaults; helps debugging)
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS max_notional_usd DOUBLE PRECISION;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS max_price DOUBLE PRECISION;
+
 -- optional market registry
 CREATE TABLE IF NOT EXISTS market (
   id BIGSERIAL PRIMARY KEY,

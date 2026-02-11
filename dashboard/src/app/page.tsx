@@ -45,9 +45,17 @@ export default async function Page() {
     );
   }
 
-  const runs = await sql<BotRunRow & { trades_fetched?: number | null; fills_inserted?: number | null }>(
+  const runs = await sql<
+    BotRunRow & {
+      trades_fetched?: number | null;
+      fills_inserted?: number | null;
+      dry_run?: boolean | null;
+      max_notional_usd?: number | null;
+      max_price?: number | null;
+    }
+  >(
     `
-    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, error
+    SELECT started_at, finished_at, status, discovered_count, trades_fetched, fills_inserted, dry_run, max_notional_usd, max_price, error
     FROM bot_run
     ORDER BY started_at DESC
     LIMIT 50
@@ -131,7 +139,7 @@ export default async function Page() {
         <div className="card" style={{ gridColumn: 'span 12' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>Runs</div>
-            <div className="muted">status / discovered_count / error</div>
+            <div className="muted">status / discovered_count / dry_run / limits / error</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
@@ -140,6 +148,9 @@ export default async function Page() {
                   <th>started</th>
                   <th>status</th>
                   <th>discovered</th>
+                  <th>dry_run</th>
+                  <th>max_notional</th>
+                  <th>max_price</th>
                   <th>trades_fetched</th>
                   <th>fills_inserted</th>
                   <th>error</th>
@@ -157,6 +168,9 @@ export default async function Page() {
                       )}
                     </td>
                     <td>{r.discovered_count ?? '-'}</td>
+                    <td>{(r as any).dry_run == null ? '-' : String((r as any).dry_run)}</td>
+                    <td>{(r as any).max_notional_usd == null ? '-' : Number((r as any).max_notional_usd).toFixed(2)}</td>
+                    <td>{(r as any).max_price == null ? '-' : Number((r as any).max_price).toFixed(4)}</td>
                     <td>{(r as any).trades_fetched ?? '-'}</td>
                     <td>{(r as any).fills_inserted ?? '-'}</td>
                     <td style={{ maxWidth: 520, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.error ?? ''}</td>

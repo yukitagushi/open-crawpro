@@ -213,8 +213,25 @@ def main() -> None:
                 inserted += cur.rowcount
 
             cur.execute(
-                "UPDATE bot_run SET discovered_count=%s, trades_fetched=%s, fills_inserted=%s WHERE run_id=%s",
-                (len(pairs), len(trades), inserted, run.run_id),
+                """
+                UPDATE bot_run
+                SET discovered_count=%s,
+                    trades_fetched=%s,
+                    fills_inserted=%s,
+                    dry_run=%s,
+                    max_notional_usd=%s,
+                    max_price=%s
+                WHERE run_id=%s
+                """,
+                (
+                    len(pairs),
+                    len(trades),
+                    inserted,
+                    bool(DRY_RUN),
+                    float(MAX_NOTIONAL_USD),
+                    float(MAX_PRICE),
+                    run.run_id,
+                ),
             )
 
         conn.commit()
