@@ -17,6 +17,7 @@ from db_pg import connect, finish_run, init_db, start_run
 from gamma import discover_markets
 from infra import Infra, load_config_from_env
 from content_ingest import ingest_default_feeds
+from signal import score_text
 
 
 def _as_float(v):
@@ -82,8 +83,47 @@ def main() -> None:
 
         # ---- Content ingest (RSS/blog) ----
         content_items_inserted, content_injection_flagged = (0, 0)
+        signals_inserted = 0
+        ingest_started_at = __import__("datetime").datetime.utcnow()
         try:
             content_items_inserted, content_injection_flagged = ingest_default_feeds(conn)
+            conn.commit()
+
+            # Phase A signal extraction (keyword-based)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT source_key, item_id, title, summary, content_text
+                    FROM content_item
+                    WHERE fetched_at >= %s
+                    ORDER BY fetched_at DESC
+                    LIMIT 400
+                    """,
+                    (ingest_started_at,),
+                )
+                rows = cur.fetchall() or []
+
+                for source_key, item_id, title, summary, content_text in rows:
+                    s = score_text(title, summary, content_text)
+                    # Only record strong bullish signals for now
+                    if s.label != "bullish" or s.score < 2:
+                        continue
+
+                    rationale = {
+                        "hits_bull": s.hits_bull,
+                        "hits_bear": s.hits_bear,
+                        "score": s.score,
+                        "label": s.label,
+                    }
+                    cur.execute(
+                        """
+                        INSERT INTO content_signal(source_key, item_id, score, label, rationale_json)
+                        VALUES (%s,%s,%s,%s,%s::jsonb)
+                        ON CONFLICT (source_key, item_id) DO NOTHING
+                        """,
+                        (str(source_key), str(item_id), int(s.score), str(s.label), __import__("json").dumps(rationale)),
+                    )
+                    signals_inserted += cur.rowcount
             conn.commit()
         except Exception as e:
             logger.warning("content ingest failed: %s", e)
@@ -331,7 +371,8 @@ def main() -> None:
                     paper_plans_count=%s,
                     paper_fills_inserted=%s,
                     content_items_inserted=%s,
-                    content_injection_flagged=%s
+                    content_injection_flagged=%s,
+                    signals_inserted=%s
                 WHERE run_id=%s
                 """,
                 (
@@ -345,6 +386,7 @@ def main() -> None:
                     int(paper_fills_inserted),
                     int(content_items_inserted),
                     int(content_injection_flagged),
+                    int(signals_inserted),
                     run.run_id,
                 ),
             )

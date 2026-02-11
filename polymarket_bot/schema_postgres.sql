@@ -19,6 +19,7 @@ ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_plans_count INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS paper_fills_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_items_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_injection_flagged INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS signals_inserted INTEGER;
 
 -- config snapshot (safe defaults; helps debugging)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;
@@ -171,3 +172,16 @@ CREATE TABLE IF NOT EXISTS content_item (
 
 CREATE INDEX IF NOT EXISTS idx_content_item_published ON content_item(published_at);
 CREATE INDEX IF NOT EXISTS idx_content_item_injection ON content_item(injection_detected);
+
+CREATE TABLE IF NOT EXISTS content_signal (
+  id BIGSERIAL PRIMARY KEY,
+  source_key TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  rationale_json JSONB,
+  UNIQUE(source_key, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_signal_score ON content_signal(score);
