@@ -15,6 +15,7 @@ type SigRow = {
   item_id: string;
   score: number;
   label: string;
+  tags: string[] | null;
   title: string | null;
   url: string | null;
 };
@@ -36,7 +37,7 @@ export default async function Page() {
 
   const sigs = await sql<SigRow>(
     `
-    SELECT cs.created_at, cs.source_key, cs.item_id, cs.score, cs.label,
+    SELECT cs.created_at, cs.source_key, cs.item_id, cs.score, cs.label, cs.tags,
            ci.title, ci.url
     FROM content_signal cs
     JOIN content_item ci
@@ -61,10 +62,11 @@ export default async function Page() {
           <table className="table">
             <thead>
               <tr>
-                <th>created</th>
-                <th>score</th>
-                <th>source</th>
-                <th>title</th>
+                <th>作成</th>
+                <th>スコア</th>
+                <th>ソース</th>
+                <th>タグ</th>
+                <th>タイトル</th>
               </tr>
             </thead>
             <tbody>
@@ -73,6 +75,7 @@ export default async function Page() {
                   <td>{fmt(s.created_at)}</td>
                   <td>{s.score}</td>
                   <td>{s.source_key}</td>
+                  <td>{(s.tags && s.tags.length) ? s.tags.join(', ') : ''}</td>
                   <td>
                     {s.url ? (
                       <a href={s.url} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}>

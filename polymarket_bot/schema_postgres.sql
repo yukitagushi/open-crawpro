@@ -167,9 +167,12 @@ CREATE TABLE IF NOT EXISTS content_item (
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   injection_detected BOOLEAN NOT NULL DEFAULT FALSE,
   injection_excerpt TEXT,
+  tags TEXT[],
   raw_json JSONB,
   UNIQUE(source_key, item_id)
 );
+
+ALTER TABLE content_item ADD COLUMN IF NOT EXISTS tags TEXT[];
 
 CREATE INDEX IF NOT EXISTS idx_content_item_published ON content_item(published_at);
 CREATE INDEX IF NOT EXISTS idx_content_item_injection ON content_item(injection_detected);
@@ -180,10 +183,13 @@ CREATE TABLE IF NOT EXISTS content_signal (
   item_id TEXT NOT NULL,
   score INTEGER NOT NULL,
   label TEXT NOT NULL,
+  tags TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   rationale_json JSONB,
   UNIQUE(source_key, item_id)
 );
+
+ALTER TABLE content_signal ADD COLUMN IF NOT EXISTS tags TEXT[];
 
 CREATE INDEX IF NOT EXISTS idx_content_signal_score ON content_signal(score);
 

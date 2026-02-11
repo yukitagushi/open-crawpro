@@ -18,6 +18,7 @@ from gamma import discover_markets
 from infra import Infra, load_config_from_env
 from content_ingest import ingest_default_feeds
 from signal import score_text
+from tagger import extract_tags
 
 
 def _as_float(v):
@@ -110,19 +111,21 @@ def main() -> None:
                     if s.label != "bullish" or s.score < 2:
                         continue
 
+                    tags = extract_tags(title, summary, content_text)
                     rationale = {
                         "hits_bull": s.hits_bull,
                         "hits_bear": s.hits_bear,
                         "score": s.score,
                         "label": s.label,
+                        "tags": tags,
                     }
                     cur.execute(
                         """
-                        INSERT INTO content_signal(source_key, item_id, score, label, rationale_json)
-                        VALUES (%s,%s,%s,%s,%s::jsonb)
+                        INSERT INTO content_signal(source_key, item_id, score, label, tags, rationale_json)
+                        VALUES (%s,%s,%s,%s,%s,%s::jsonb)
                         ON CONFLICT (source_key, item_id) DO NOTHING
                         """,
-                        (str(source_key), str(item_id), int(s.score), str(s.label), __import__("json").dumps(rationale)),
+                        (str(source_key), str(item_id), int(s.score), str(s.label), tags, __import__("json").dumps(rationale)),
                     )
                     if cur.rowcount:
                         signals_inserted += 1
