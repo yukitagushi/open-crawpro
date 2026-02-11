@@ -68,7 +68,8 @@ def main() -> None:
         want_15min = _env_bool("DISCOVERY_15MIN", False)
         want_crypto = _env_bool("DISCOVERY_CRYPTO_TAG", False)
         require_open = _env_bool("DISCOVERY_REQUIRE_OPEN", True)
-        require_liq = _env_bool("DISCOVERY_REQUIRE_LIQUIDITY", True)
+        # Gamma liquidity fields can be missing/unstable; default to False so discovery doesn't go empty.
+        require_liq = _env_bool("DISCOVERY_REQUIRE_LIQUIDITY", False)
 
         pairs = discover_markets(
             want_15min=want_15min,
