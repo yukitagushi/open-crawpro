@@ -169,21 +169,21 @@ def main() -> None:
                 )
 
                 # ---- Paper-trade simulation (Phase B) ----
-                # If DRY_RUN, we can simulate a fill using current best_ask.
-                # This is a simple, conservative model: a BUY limit fills immediately iff limit_price >= best_ask.
+                # For data collection, we do a simple "mark fill":
+                # - if we can read best_ask and the side is buy, record a paper fill at best_ask.
+                # This guarantees we accumulate paper fills for analysis, without sending any real orders.
                 if DRY_RUN and plan.get("best_ask") is not None:
                     try:
                         best_ask = float(plan["best_ask"])
-                        limit_price = float(plan["limit_price"])
                         size = float(plan["size"])
-                        if plan.get("side") == "buy" and limit_price >= best_ask:
+                        if plan.get("side") == "buy":
                             paper_fill_id = f"paper-{client_order_id}"  # stable
                             paper = {
                                 **plan,
                                 "paper_fill_id": paper_fill_id,
                                 "fill_price": best_ask,
                                 "fill_size": size,
-                                "fill_rule": "limit>=best_ask",
+                                "fill_rule": "mark_fill_best_ask",
                             }
                             cur.execute(
                                 """
