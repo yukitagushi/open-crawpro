@@ -39,6 +39,9 @@ jobs:
           # Cloud DB
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+          # Optional: Slack notifications (Incoming Webhook URL)
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
           # Bot knobs (safe defaults)
           DRY_RUN: "true"
           MAX_NOTIONAL_USD: "1.0"

@@ -48,7 +48,7 @@ export default async function Page() {
   return (
     <main className="container">
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Content</div>
+        <div className="h1">収集記事</div>
         <div className="muted">RSS/ブログ等の収集ログ（最新200件）。Injection検知は要注意としてフラグ付け。</div>
         <div className="muted" style={{ marginTop: 6 }}>flagged: {flagged}</div>
         <div style={{ marginTop: 8 }}>

@@ -49,8 +49,8 @@ export default async function Page() {
   return (
     <main className="container">
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Signals</div>
-        <div className="muted">Phase A: キーワードベースの強気シグナル（score{'≥'}2）。実売買はしない。</div>
+        <div className="h1">シグナル</div>
+        <div className="muted">フェーズA：キーワードベースの強気シグナル（score{'≥'}2）。実売買はしない。</div>
         <div style={{ marginTop: 8 }}>
           <Link href="/">← Back</Link>
         </div>

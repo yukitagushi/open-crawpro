@@ -47,7 +47,7 @@ export default async function Page() {
   return (
     <main className="container">
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Orders</div>
+        <div className="h1">注文</div>
         <div className="muted">最新200件。今はDRY_RUN計画注文もここに入ります。</div>
         <div style={{ marginTop: 8 }}>
           <Link href="/">← Back</Link>

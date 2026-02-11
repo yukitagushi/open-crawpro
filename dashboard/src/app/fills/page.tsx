@@ -48,7 +48,7 @@ export default async function Page() {
   return (
     <main className="container">
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Fills (Trades)</div>
+        <div className="h1">約定（取引実績）</div>
         <div className="muted">最新200件。Polymarketの取引実績（get_trades）由来。</div>
         <div style={{ marginTop: 8 }}>
           <Link href="/">← Back</Link>

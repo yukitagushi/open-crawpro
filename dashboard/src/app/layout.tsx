@@ -19,13 +19,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Polymarket Bot Dashboard
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Link href="/" className="toplink">Overview</Link>
-              <Link href="/orders" className="toplink">Orders</Link>
-              <Link href="/fills" className="toplink">Fills</Link>
-              <Link href="/paper" className="toplink">Paper</Link>
-              <Link href="/content" className="toplink">Content</Link>
-              <Link href="/signals" className="toplink">Signals</Link>
-              <a href="/api/health" className="toplink">Health</a>
+              <Link href="/" className="toplink">概要</Link>
+              <Link href="/orders" className="toplink">注文</Link>
+              <Link href="/fills" className="toplink">約定</Link>
+              <Link href="/paper" className="toplink">ペーパー</Link>
+              <Link href="/content" className="toplink">収集記事</Link>
+              <Link href="/signals" className="toplink">シグナル</Link>
+              <a href="/api/health" className="toplink">ヘルス</a>
             </div>
           </div>
         </div>

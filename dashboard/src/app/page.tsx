@@ -135,7 +135,7 @@ export default async function Page() {
     <main className="container">
       <div className="grid" style={{ marginBottom: 12 }}>
         <div className="card" style={{ gridColumn: 'span 12' }}>
-          <div className="h1">Overview</div>
+          <div className="h1">概要</div>
           <div className="muted">白ベースで、実行状況とデータを確認できます（PnLは次の段階で追加）。</div>
         </div>
 

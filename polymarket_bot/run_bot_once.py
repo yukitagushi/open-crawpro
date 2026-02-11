@@ -90,10 +90,11 @@ def main() -> None:
             conn.commit()
 
             # Phase A signal extraction (keyword-based)
+            new_signal_rows = []
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT source_key, item_id, title, summary, content_text
+                    SELECT source_key, item_id, title, summary, content_text, url
                     FROM content_item
                     WHERE fetched_at >= %s
                     ORDER BY fetched_at DESC
@@ -103,7 +104,7 @@ def main() -> None:
                 )
                 rows = cur.fetchall() or []
 
-                for source_key, item_id, title, summary, content_text in rows:
+                for source_key, item_id, title, summary, content_text, url in rows:
                     s = score_text(title, summary, content_text)
                     # Only record strong bullish signals for now
                     if s.label != "bullish" or s.score < 2:
@@ -123,8 +124,31 @@ def main() -> None:
                         """,
                         (str(source_key), str(item_id), int(s.score), str(s.label), __import__("json").dumps(rationale)),
                     )
-                    signals_inserted += cur.rowcount
+                    if cur.rowcount:
+                        signals_inserted += 1
+                        new_signal_rows.append(
+                            {
+                                "source": str(source_key),
+                                "item_id": str(item_id),
+                                "score": int(s.score),
+                                "title": (title or "")[:140],
+                                "url": url or "",
+                            }
+                        )
             conn.commit()
+
+            # Notify Slack (optional) if new bullish signals were inserted
+            webhook = (os.getenv("SLACK_WEBHOOK_URL") or "").strip()
+            if webhook and signals_inserted > 0:
+                try:
+                    import requests  # already in requirements
+
+                    top = sorted(new_signal_rows, key=lambda x: x["score"], reverse=True)[:5]
+                    lines = [f"・[{t['score']}] {t['title']} {t['url']}".strip() for t in top]
+                    text = "強気シグナルを検出（新規 {n}件）\n".format(n=signals_inserted) + "\n".join(lines)
+                    requests.post(webhook, json={"text": text}, timeout=10).raise_for_status()
+                except Exception as e:
+                    logger.warning("slack webhook notify failed: %s", e)
         except Exception as e:
             logger.warning("content ingest failed: %s", e)
         logger.info(
