@@ -138,6 +138,22 @@ CREATE TABLE IF NOT EXISTS paper_position_snapshot (
 
 CREATE INDEX IF NOT EXISTS idx_paper_pos_token ON paper_position_snapshot(token_id);
 
+-- Paper PnL time series (mark-to-mid each run)
+CREATE TABLE IF NOT EXISTS paper_pnl_point (
+  id BIGSERIAL PRIMARY KEY,
+  run_id TEXT,
+  market_id TEXT,
+  token_id TEXT NOT NULL,
+  mid DOUBLE PRECISION,
+  position_size DOUBLE PRECISION NOT NULL,
+  avg_entry_price DOUBLE PRECISION,
+  unrealized_pnl DOUBLE PRECISION,
+  snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_json JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_pnl_token_time ON paper_pnl_point(token_id, snapshot_at);
+
 -- --------------------
 -- Content ingestion (RSS/blog/newsletters)
 -- --------------------

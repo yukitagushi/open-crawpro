@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/orders" className="toplink">注文</Link>
               <Link href="/fills" className="toplink">約定</Link>
               <Link href="/paper" className="toplink">ペーパー</Link>
+              <Link href="/pnl" className="toplink">収益</Link>
               <Link href="/content" className="toplink">収集記事</Link>
               <Link href="/signals" className="toplink">シグナル</Link>
               <a href="/api/health" className="toplink">ヘルス</a>

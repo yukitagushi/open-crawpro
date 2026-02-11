@@ -345,7 +345,7 @@ def main() -> None:
                 except Exception:
                     trades = []
 
-            # Update paper position snapshot (best-effort)
+            # Update paper position snapshot + PnL point (best-effort)
             try:
                 if plans and DRY_RUN:
                     # snapshot positions for tokens we touched this run
@@ -369,6 +369,7 @@ def main() -> None:
                                 pos -= size
                                 cost -= price * size
                         avg = (cost / pos) if pos > 1e-12 else None
+
                         snap = {
                             "token_id": str(token_id),
                             "position_size": pos,
@@ -387,8 +388,55 @@ def main() -> None:
                                 __import__("json").dumps(snap),
                             ),
                         )
+
+                        # mark-to-mid (use live orderbook)
+                        mid = None
+                        if infra.clob is not None:
+                            try:
+                                ob = infra.clob.get_order_book(str(token_id))
+                                best_bid = _as_float(ob.bids[0].price) if getattr(ob, "bids", None) else None
+                                best_ask = _as_float(ob.asks[0].price) if getattr(ob, "asks", None) else None
+                                if best_bid is not None and best_ask is not None:
+                                    mid = (float(best_bid) + float(best_ask)) / 2.0
+                            except Exception:
+                                mid = None
+
+                        unreal = None
+                        if mid is not None and avg is not None:
+                            unreal = (float(mid) - float(avg)) * float(pos)
+
+                        # store pnl point
+                        try:
+                            market_id = str(plans[0].get("market_id") or "")
+                        except Exception:
+                            market_id = ""
+
+                        raw = {
+                            "token_id": str(token_id),
+                            "market_id": market_id,
+                            "mid": mid,
+                            "position_size": pos,
+                            "avg_entry_price": avg,
+                            "unrealized_pnl": unreal,
+                        }
+                        cur.execute(
+                            """
+                            INSERT INTO paper_pnl_point(run_id, market_id, token_id, mid, position_size, avg_entry_price, unrealized_pnl, raw_json)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                            """,
+                            (
+                                run.run_id,
+                                market_id,
+                                str(token_id),
+                                float(mid) if mid is not None else None,
+                                float(pos),
+                                float(avg) if avg is not None else None,
+                                float(unreal) if unreal is not None else None,
+                                __import__("json").dumps(raw),
+                            ),
+                        )
             except Exception as e:
-                logger.warning("paper position snapshot failed: %s", e)
+                logger.warning("paper position/pnl snapshot failed: %s", e)
 
             inserted = 0
             for t in trades:
