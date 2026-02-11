@@ -42,7 +42,7 @@ jobs:
           # Bot knobs (safe defaults)
           DRY_RUN: "true"
           MAX_NOTIONAL_USD: "1.0"
-          MAX_PRICE: "0.55"
+          MAX_PRICE: "0.99"
           DISCOVERY_REQUIRE_OPEN: "true"
           DISCOVERY_REQUIRE_LIQUIDITY: "true"
 
