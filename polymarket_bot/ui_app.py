@@ -85,7 +85,7 @@ st.caption("白ベースのシンプルUI（取引はまだ実装前 / 秘密情
 # Sidebar navigation
 page = st.sidebar.radio(
     "メニュー",
-    ["Overview", "DB Dashboard", "Market Discovery", "Strategy Sandbox", "News"],
+    ["Overview", "DB Dashboard", "Market Discovery", "Strategy Sandbox", "News", "Logs"],
     index=0,
 )
 
@@ -265,8 +265,24 @@ elif page == "Strategy Sandbox":
             no=BestQuote(bid=no_bid, ask=no_ask),
         )
         rec = decide(top, taker_fee=taker_fee, maker_edge=maker_edge, size=size)
-        st.success(f"Decision: {rec.decision.value} / mode: {rec.mode.value}")
-        st.write("Reason:", rec.reason)
+
+        # Show the exact arb inequality for clarity
+        lhs = yes_ask + no_ask
+        rhs = 1.0 - 2.0 * taker_fee
+        st.markdown("#### 判定の根拠")
+        st.markdown(
+            f"- Negative Risk Arb 条件: `YES_ask + NO_ask < 1 - 2*taker_fee`  \n"
+            f"- 今回: `{lhs:.4f} < {rhs:.4f}`"
+        )
+
+        if rec.mode.value == "taker_arb":
+            st.success(f"判定: {rec.decision.value}（Arb / Taker）")
+        elif rec.mode.value == "maker":
+            st.info(f"判定: {rec.decision.value}（Maker 指値）")
+        else:
+            st.warning(f"判定: {rec.decision.value}")
+
+        st.write("理由:", rec.reason)
         st.write({"price_yes": rec.price_yes, "price_no": rec.price_no, "size": rec.size})
 
 # --- News ---
@@ -282,3 +298,30 @@ elif page == "News":
                 st.markdown(f"- **{h.source}**: [{h.title}]({h.link})")
         except Exception as e:
             st.error(str(e))
+
+# --- Logs ---
+elif page == "Logs":
+    st.subheader("Logs")
+    st.markdown("<div class='oc-muted'>UI起動ログ（logs/ui.log）をここで確認できます。</div>", unsafe_allow_html=True)
+
+    log_path = os.path.join(os.path.dirname(__file__), "logs", "ui.log")
+    st.code(log_path)
+
+    n = st.slider("表示行数", min_value=20, max_value=400, value=120, step=20)
+
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.read().splitlines()[-n:]
+            st.text("\n".join(lines))
+        else:
+            st.info("まだ logs/ui.log がありません。run_ui.sh で起動すると作成されます。")
+    except Exception as e:
+        st.error(f"ログ読み込みに失敗: {e}")
+
+    st.markdown("### よくあるメモ")
+    st.markdown(
+        "- UI起動: `./scripts/run_ui.sh`（ローカル127.0.0.1固定）\n"
+        "- UI停止: `./scripts/stop_ui.sh`\n"
+        "- もし別PC/スマホから見たい場合は、Tailscale等の安全な経路推奨（ポート開放は非推奨）"
+    )

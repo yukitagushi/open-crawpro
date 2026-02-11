@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Open-crawpro dashboard',
 };
 
+import Link from 'next/link';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
@@ -16,9 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--primary)', display: 'inline-block' }} />
               Polymarket Bot Dashboard
             </div>
-            <div className="badge">
-              <span className="dot" />
-              Light UI / ChatGPT-like accent
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Link href="/" className="toplink">Overview</Link>
+              <Link href="/orders" className="toplink">Orders</Link>
+              <Link href="/fills" className="toplink">Fills</Link>
+              <a href="/api/health" className="toplink">Health</a>
             </div>
           </div>
         </div>

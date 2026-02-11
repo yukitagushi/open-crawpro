@@ -27,16 +27,19 @@ Stop:
 ```
 
 ## Env
-Create `.env` (DO NOT commit it):
-```env
-PRIVATE_KEY=0x...
-POLYGON_RPC_URL=https://polygon-rpc.com
-CLOB_API_KEY=...
-CLOB_API_SECRET=...
-CLOB_API_PASSPHRASE=...
-CLOB_HOST=https://clob.polymarket.com
-CHAIN_ID=137
+Create `.env` (DO NOT commit it). We provide `.env.template`:
+```bash
+python env_template.py  # writes .env.template
+cp .env.template .env
+# then fill values
 ```
+
+Required keys:
+- PRIVATE_KEY
+- POLYGON_RPC_URL
+- CLOB_API_KEY
+- CLOB_API_SECRET
+- CLOB_API_PASSPHRASE
 
 ## Run quick checks (no secrets needed)
 ```bash
