@@ -65,6 +65,13 @@ export default async function Page() {
 
   const okCount = runs.filter((r) => r.status === 'ok').length;
   const latest = runs[0]?.started_at ?? null;
+  const latestAgeMin = (() => {
+    if (!latest) return null;
+    const d = new Date(String(latest));
+    const ms = Date.now() - d.getTime();
+    if (!Number.isFinite(ms)) return null;
+    return Math.max(0, Math.round(ms / 60000));
+  })();
   const discoveredSeries = runs
     .slice()
     .reverse()
@@ -103,7 +110,7 @@ export default async function Page() {
         </div>
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{latest ? fmt(latest) : '-'}</div>
-          <div className="kpiLabel">latest run</div>
+          <div className="kpiLabel">latest run{latestAgeMin != null ? ` (${latestAgeMin} min ago)` : ''}</div>
         </div>
 
         <div className="card" style={{ gridColumn: 'span 4' }}>

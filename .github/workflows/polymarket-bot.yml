@@ -38,5 +38,12 @@ jobs:
 
           # Cloud DB
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+          # Bot knobs (safe defaults)
+          DRY_RUN: "true"
+          MAX_NOTIONAL_USD: "1.0"
+          MAX_PRICE: "0.55"
+          DISCOVERY_REQUIRE_OPEN: "true"
+          DISCOVERY_REQUIRE_LIQUIDITY: "true"
         run: |
           python run_bot_once.py
