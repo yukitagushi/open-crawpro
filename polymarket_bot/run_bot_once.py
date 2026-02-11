@@ -93,27 +93,40 @@ def main() -> None:
         MAX_NOTIONAL_USD = _env_float("MAX_NOTIONAL_USD", 1.0)
         MAX_PRICE = _env_float("MAX_PRICE", 0.55)
 
-        chosen = pairs[0] if pairs else None
-        plan = None
-        if chosen is not None and infra.clob is not None:
-            try:
-                ob = infra.clob.get_order_book(chosen.yes_token_id)
-                best_ask = _as_float(ob.asks[0].price) if getattr(ob, "asks", None) else None
-                if best_ask is not None:
+        # Optionally pin to a allowlist of condition_id/market_id (comma-separated)
+        allowlist_raw = (os.getenv("MARKET_ALLOWLIST") or "").strip()
+        allow = {x.strip() for x in allowlist_raw.split(",") if x.strip()} if allowlist_raw else set()
+        if allow:
+            pairs = [p for p in pairs if (p.market_id in allow)]
+
+        # How many markets to generate paper plans for
+        N_MARKETS_PER_RUN = int(os.getenv("N_MARKETS_PER_RUN") or "1")
+        N_MARKETS_PER_RUN = max(1, min(N_MARKETS_PER_RUN, 50))
+
+        plans = []
+        if infra.clob is not None:
+            for chosen in pairs[:N_MARKETS_PER_RUN]:
+                try:
+                    ob = infra.clob.get_order_book(chosen.yes_token_id)
+                    best_ask = _as_float(ob.asks[0].price) if getattr(ob, "asks", None) else None
+                    if best_ask is None:
+                        continue
                     price = min(best_ask, MAX_PRICE)
                     size = MAX_NOTIONAL_USD / max(price, 1e-9)
-                    plan = {
-                        "market_id": chosen.market_id,
-                        "question": chosen.question,
-                        "token_id": chosen.yes_token_id,
-                        "side": "buy",
-                        "best_ask": best_ask,
-                        "limit_price": price,
-                        "size": size,
-                        "dry_run": DRY_RUN,
-                    }
-            except Exception as e:
-                logger.warning("orderbook/plan failed: %s", e)
+                    plans.append(
+                        {
+                            "market_id": chosen.market_id,
+                            "question": chosen.question,
+                            "token_id": chosen.yes_token_id,
+                            "side": "buy",
+                            "best_ask": best_ask,
+                            "limit_price": price,
+                            "size": size,
+                            "dry_run": DRY_RUN,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning("orderbook/plan failed (%s): %s", getattr(chosen, "market_id", "?"), e)
 
         # Persist what we saw (for UI/analytics)
         with conn.cursor() as cur:
@@ -133,8 +146,8 @@ def main() -> None:
                     (p.market_id, p.question, p.yes_token_id, p.no_token_id),
                 )
 
-            # Save planned order (dry-run) to orders table
-            if plan is not None:
+            # Save planned order(s) (dry-run) to orders table
+            for plan in plans:
                 client_order_id = f"plan-{run.run_id}-{uuid.uuid4().hex[:8]}"
                 cur.execute(
                     """
@@ -209,9 +222,10 @@ def main() -> None:
 
             # Update paper position snapshot (best-effort)
             try:
-                if plan is not None and DRY_RUN:
-                    token_id = plan.get("token_id")
-                    if token_id:
+                if plans and DRY_RUN:
+                    # snapshot positions for tokens we touched this run
+                    token_ids = sorted({p.get("token_id") for p in plans if p.get("token_id")})
+                    for token_id in token_ids:
                         cur.execute(
                             "SELECT side, price, size FROM paper_fills WHERE token_id=%s ORDER BY created_at ASC",
                             (str(token_id),),

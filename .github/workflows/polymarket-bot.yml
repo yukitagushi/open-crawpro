@@ -45,5 +45,9 @@ jobs:
           MAX_PRICE: "0.55"
           DISCOVERY_REQUIRE_OPEN: "true"
           DISCOVERY_REQUIRE_LIQUIDITY: "true"
+
+          # Optional: paper-trade data collection
+          N_MARKETS_PER_RUN: "10"
+          MARKET_ALLOWLIST: ""  # set to a market_id/condition_id (comma-separated) to pin targets
         run: |
           python run_bot_once.py
