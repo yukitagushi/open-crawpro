@@ -141,26 +141,26 @@ export default async function Page() {
 
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{runs.length}</div>
-          <div className="kpiLabel">runs (last 50)</div>
+          <div className="kpiLabel">実行回数（直近50）</div>
         </div>
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{okCount}</div>
-          <div className="kpiLabel">ok</div>
+          <div className="kpiLabel">成功（OK）</div>
         </div>
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{latest ? fmt(latest) : '-'}</div>
-          <div className="kpiLabel">latest run{latestAgeMin != null ? ` (${latestAgeMin} min ago)` : ''}</div>
+          <div className="kpiLabel">最終実行{latestAgeMin != null ? `（${latestAgeMin}分前）` : ''}</div>
         </div>
 
         <div className="card" style={{ gridColumn: 'span 4' }}>
           <div className="kpi">{fillsCount}</div>
-          <div className="kpiLabel">fills (trades)</div>
+          <div className="kpiLabel">約定件数（取引実績）</div>
         </div>
 
         <div className="card" style={{ gridColumn: 'span 12' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <div>
-              <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>Discovery count (sparkline)</div>
+              <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>市場発見数（推移）</div>
               <div className="muted">bot_run.discovered_count の推移</div>
             </div>
             <Sparkline values={discoveredSeries} />
@@ -169,27 +169,27 @@ export default async function Page() {
 
         <div className="card" style={{ gridColumn: 'span 12' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>Runs</div>
-            <div className="muted">status / discovered_count / dry_run / limits / error</div>
+            <div style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>実行ログ</div>
+            <div className="muted">状態 / 市場発見数 / dry_run / 上限 / 収集 / エラー</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>started</th>
-                  <th>status</th>
-                  <th>discovered</th>
+                  <th>開始</th>
+                  <th>状態</th>
+                  <th>発見</th>
                   <th>dry_run</th>
-                  <th>max_notional</th>
-                  <th>max_price</th>
-                  <th>trades_fetched</th>
-                  <th>fills_inserted</th>
-                  <th>paper_plans</th>
-                  <th>paper_fills+</th>
-                  <th>content+</th>
-                  <th>inj+</th>
-                  <th>sig+</th>
-                  <th>error</th>
+                  <th>上限USD</th>
+                  <th>上限価格</th>
+                  <th>取得trades</th>
+                  <th>追加fills</th>
+                  <th>paper計画</th>
+                  <th>paper約定+</th>
+                  <th>記事+</th>
+                  <th>注入+</th>
+                  <th>シグ+</th>
+                  <th>エラー</th>
                 </tr>
               </thead>
               <tbody>
