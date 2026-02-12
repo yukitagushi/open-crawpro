@@ -34,11 +34,13 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
   return (
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+        <div className="muted" style={{ flex: 1 }}>
+          表示件数: {filtered.length} / {rows.length}
+        </div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={showErrors} onChange={(e) => setShowErrors(e.target.checked)} />
-          <span>エラー行も表示</span>
+          <span>エラーも表示</span>
         </label>
-        <div className="muted">表示件数: {filtered.length} / {rows.length}</div>
       </div>
 
       <table className="table">
