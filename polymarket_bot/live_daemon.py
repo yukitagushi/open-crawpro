@@ -209,9 +209,20 @@ def main() -> None:
                 # Avoid float artifacts (0.029999999) that can break amount precision checks.
                 price = float(f"{price:.3f}")
 
-                size = max_notional / price
-                size = float(f"{size:.2f}")
-                notional = price * size
+                # Polymarket enforces amount precision:
+                # - maker amount (USDC) up to 2 decimals
+                # - taker amount (shares) up to 5 decimals
+                from decimal import Decimal, ROUND_DOWN
+
+                notional_target = Decimal(str(round(max_notional, 2)))  # e.g. 1.00
+                p = Decimal(str(price))
+                if p <= 0:
+                    continue
+
+                # compute share size (taker amount) with 5 decimals, round DOWN so notional <= target
+                size_d = (notional_target / p).quantize(Decimal("0.00001"), rounding=ROUND_DOWN)
+                size = float(size_d)
+                notional = float((p * size_d).quantize(Decimal("0.01"), rounding=ROUND_DOWN))
                 if todays_notional + notional > daily_cap:
                     continue
 

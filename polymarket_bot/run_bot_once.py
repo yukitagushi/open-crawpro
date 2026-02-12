@@ -279,8 +279,15 @@ def main() -> None:
                         continue
                     price = min(best_ask, MAX_PRICE)
                     price = float(f"{price:.3f}")
-                    size = MAX_NOTIONAL_USD / max(price, 1e-9)
-                    size = float(f"{size:.2f}")
+
+                    from decimal import Decimal, ROUND_DOWN
+
+                    notional_target = Decimal(str(round(MAX_NOTIONAL_USD, 2)))
+                    p = Decimal(str(price))
+                    if p <= 0:
+                        continue
+                    size_d = (notional_target / p).quantize(Decimal("0.00001"), rounding=ROUND_DOWN)
+                    size = float(size_d)
                     plans.append(
                         {
                             "market_id": chosen.market_id,
