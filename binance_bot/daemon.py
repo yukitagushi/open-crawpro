@@ -240,10 +240,28 @@ def main() -> None:
                         cur.execute(
                             """
                             UPDATE binance_order
-                            SET status='submitted', order_id=%s, base_qty=%s, price=%s, raw_response_json=%s::jsonb
+                            SET status='submitted',
+                                order_id=%s,
+                                base_qty=%s,
+                                price=%s,
+                                take_profit_price=%s,
+                                stop_loss_price=%s,
+                                stop_limit_price=%s,
+                                oco_order_list_id=%s,
+                                raw_response_json=%s::jsonb
                             WHERE id=%s
                             """,
-                            (str(resp.get("orderId")), float(qty), float(avg_price), json.dumps({"buy": resp, "oco": oco}), order_row_id),
+                            (
+                                str(resp.get("orderId")),
+                                float(qty),
+                                float(avg_price),
+                                float(tp_price),
+                                float(sl_price),
+                                float(sl_limit),
+                                str(oco.get("orderListId")) if isinstance(oco, dict) and oco.get("orderListId") is not None else None,
+                                json.dumps({"buy": resp, "oco": oco}),
+                                order_row_id,
+                            ),
                         )
                         conn.commit()
 

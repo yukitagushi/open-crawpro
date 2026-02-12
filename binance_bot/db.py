@@ -42,10 +42,24 @@ def init_db(conn):
               quote_qty DOUBLE PRECISION,
               base_qty DOUBLE PRECISION,
               price DOUBLE PRECISION,
+              take_profit_price DOUBLE PRECISION,
+              stop_loss_price DOUBLE PRECISION,
+              stop_limit_price DOUBLE PRECISION,
+              oco_order_list_id TEXT,
               raw_request_json JSONB,
               raw_response_json JSONB,
               error TEXT
             );
             """
         )
+
+    # Safe schema evolution + indexes
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE binance_order ADD COLUMN IF NOT EXISTS take_profit_price DOUBLE PRECISION")
+        cur.execute("ALTER TABLE binance_order ADD COLUMN IF NOT EXISTS stop_loss_price DOUBLE PRECISION")
+        cur.execute("ALTER TABLE binance_order ADD COLUMN IF NOT EXISTS stop_limit_price DOUBLE PRECISION")
+        cur.execute("ALTER TABLE binance_order ADD COLUMN IF NOT EXISTS oco_order_list_id TEXT")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_order_created ON binance_order(created_at)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_order_symbol ON binance_order(symbol)")
+
     conn.commit()
