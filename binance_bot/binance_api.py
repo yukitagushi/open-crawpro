@@ -46,7 +46,9 @@ class BinanceApi:
         params = {"timestamp": ts, "recvWindow": 5000}
         q = self._sign(params)
         r = self.session.get(self.base_url + "/api/v3/account?" + q, timeout=10)
-        r.raise_for_status()
+        if r.status_code != 200:
+            # Include response body for debugging (does not contain secrets)
+            raise RuntimeError(f"/api/v3/account failed: {r.status_code} {r.text}")
         return r.json()
 
     def new_order_market_buy_quote(self, symbol: str, quote_qty: float) -> dict:
