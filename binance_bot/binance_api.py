@@ -64,7 +64,8 @@ class BinanceApi:
         }
         q = self._sign(params)
         r = self.session.post(self.base_url + "/api/v3/order", data=q, timeout=10)
-        r.raise_for_status()
+        if r.status_code != 200:
+            raise RuntimeError(f"POST /api/v3/order failed: {r.status_code} {r.text}")
         return r.json()
 
     def new_oco_sell(self, symbol: str, quantity: str, price: str, stop_price: str, stop_limit_price: str) -> dict:
@@ -82,5 +83,6 @@ class BinanceApi:
         }
         q = self._sign(params)
         r = self.session.post(self.base_url + "/api/v3/order/oco", data=q, timeout=10)
-        r.raise_for_status()
+        if r.status_code != 200:
+            raise RuntimeError(f"POST /api/v3/order/oco failed: {r.status_code} {r.text}")
         return r.json()
