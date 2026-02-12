@@ -200,17 +200,19 @@ def main() -> None:
                 if time.time() - last_trade_ts < 60:
                     continue
 
-                if spent_today + quote_to_use > daily_cap:
-                    continue
-
                 last_price = Decimal(str(closes[-1]))
                 step, tick = sym_filters[sym]
 
-                # Submit BUY
-                run_id = str(uuid.uuid4())
+                # Determine quote amount respecting exchange minimum notional
                 quote_to_use = max_per
                 if quote_to_use < min_notional_floor:
                     quote_to_use = min_notional_floor
+
+                if spent_today + quote_to_use > daily_cap:
+                    continue
+
+                # Submit BUY
+                run_id = str(uuid.uuid4())
 
                 evidence = {
                     "signal": sig.__dict__,
