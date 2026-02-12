@@ -200,6 +200,9 @@ def main() -> None:
                 if time.time() - last_trade_ts < 60:
                     continue
 
+                # Stop spamming if we keep hitting balance/allowance issues.
+                # (We record errors in DB; no need to hammer the API.)
+
                 # Tight spread gate
                 if spread is not None and spread > 0.05:
                     continue
@@ -273,10 +276,14 @@ def main() -> None:
                         )
                         last_trade_ts = time.time()
                     except Exception as e:
+                        err_s = str(e)
                         cur.execute(
                             "UPDATE orders SET status='error', error=%s, updated_at=now() WHERE client_order_id=%s",
-                            (str(e), client_order_id),
+                            (err_s, client_order_id),
                         )
+                        # Backoff hard on balance/allowance errors
+                        if "balance" in err_s.lower() or "allowance" in err_s.lower():
+                            last_trade_ts = time.time() + 60 * 30  # 30 min backoff
                     conn.commit()
 
         except Exception as e:
