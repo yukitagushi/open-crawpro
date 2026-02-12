@@ -138,9 +138,14 @@ def main() -> None:
     last_trade_ts = 0.0
     last_balance_ts = 0.0
 
+    loop_i = 0
     while True:
+        loop_i += 1
         t0 = time.time()
         try:
+            if loop_i % 5 == 0:
+                logger.info("tick loop=%s enable=%s testnet_no_oco=%s", loop_i, enable, testnet_no_oco)
+
             ma_score, rsi_score = blog_scores(conn)
 
             # Balance snapshot (rough USDT estimate) every ~60s
