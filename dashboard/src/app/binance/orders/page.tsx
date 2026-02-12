@@ -59,6 +59,8 @@ export default async function Page() {
         <div style={{ marginTop: 8 }}>
           <Link href="/">← 戻る</Link>
           <span className="muted"> ・ </span>
+          <Link href="/binance/market">市場</Link>
+          <span className="muted"> ・ </span>
           <Link href="/binance/signals">シグナル</Link>
         </div>
       </div>

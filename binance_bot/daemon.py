@@ -145,6 +145,34 @@ def main() -> None:
                 kl = api.klines(sym, interval, limit=200)
                 closes = [float(k[4]) for k in kl]
 
+                # compute indicators for logging
+                from indicators import ema as _ema, rsi as _rsi
+
+                ef = _ema(closes, ema_fast)
+                es = _ema(closes, ema_slow)
+                rv = _rsi(closes, rsi_period)
+
+                # Always store indicator snapshot so we can inspect "trend" even when no trade happens.
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO binance_indicator_point(symbol, interval, close, ema_fast, ema_slow, rsi, blog_ma_score, blog_rsi_score, raw_json)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                        """,
+                        (
+                            sym,
+                            interval,
+                            float(closes[-1]),
+                            float(ef) if ef is not None else None,
+                            float(es) if es is not None else None,
+                            float(rv) if rv is not None else None,
+                            float(ma_score),
+                            float(rsi_score),
+                            json.dumps({"last_kline": kl[-1]}),
+                        ),
+                    )
+                    conn.commit()
+
                 sig = decide_signal(
                     closes,
                     ema_fast=ema_fast,

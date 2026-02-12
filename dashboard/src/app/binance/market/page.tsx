@@ -7,9 +7,13 @@ import { AutoReload } from '../../_components/AutoReload';
 type Row = {
   created_at: any;
   symbol: string;
-  kind: string;
-  score: number;
-  evidence_json: any;
+  interval: string;
+  close: number;
+  ema_fast: number | null;
+  ema_slow: number | null;
+  rsi: number | null;
+  blog_ma_score: number | null;
+  blog_rsi_score: number | null;
 };
 
 function fmt(ts: any) {
@@ -35,8 +39,8 @@ export default async function Page() {
 
   const rows = await sql<Row>(
     `
-    SELECT created_at, symbol, kind, score, evidence_json
-    FROM binance_signal
+    SELECT created_at, symbol, interval, close, ema_fast, ema_slow, rsi, blog_ma_score, blog_rsi_score
+    FROM binance_indicator_point
     ORDER BY created_at DESC
     LIMIT 200
     `
@@ -46,12 +50,12 @@ export default async function Page() {
     <main className="container">
       <AutoReload seconds={30} />
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Binance シグナル</div>
-        <div className="muted">なぜ買い候補になったかの根拠ログ</div>
+        <div className="h1">Binance 市場（指標）</div>
+        <div className="muted">BTC/ETH 15分足の指標スナップショット（常に保存）</div>
         <div style={{ marginTop: 8 }}>
           <Link href="/">← 戻る</Link>
           <span className="muted"> ・ </span>
-          <Link href="/binance/market">市場</Link>
+          <Link href="/binance/signals">シグナル</Link>
           <span className="muted"> ・ </span>
           <Link href="/binance/orders">注文</Link>
         </div>
@@ -63,29 +67,32 @@ export default async function Page() {
             <tr>
               <th>時刻</th>
               <th>銘柄</th>
-              <th>種別</th>
-              <th>スコア</th>
-              <th>根拠</th>
+              <th>足</th>
+              <th>終値</th>
+              <th>EMA fast</th>
+              <th>EMA slow</th>
+              <th>RSI</th>
+              <th>記事MA</th>
+              <th>記事RSI</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="muted">まだデータがありません</td>
+                <td colSpan={9} className="muted">まだデータがありません（常駐が起動しているか確認してください）</td>
               </tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={i}>
                   <td className="mono">{fmt(r.created_at)}</td>
                   <td className="mono">{r.symbol}</td>
-                  <td className="mono">{r.kind}</td>
-                  <td className="mono">{r.score.toFixed(3)}</td>
-                  <td>
-                    <details>
-                      <summary className="muted">表示</summary>
-                      <pre className="pre">{JSON.stringify(r.evidence_json, null, 2)}</pre>
-                    </details>
-                  </td>
+                  <td className="mono">{r.interval}</td>
+                  <td className="mono">{r.close}</td>
+                  <td className="mono">{r.ema_fast ?? '-'}</td>
+                  <td className="mono">{r.ema_slow ?? '-'}</td>
+                  <td className="mono">{r.rsi ?? '-'}</td>
+                  <td className="mono">{r.blog_ma_score ?? '-'}</td>
+                  <td className="mono">{r.blog_rsi_score ?? '-'}</td>
                 </tr>
               ))
             )}

@@ -32,6 +32,22 @@ def init_db(conn):
               evidence_json JSONB
             );
 
+            CREATE TABLE IF NOT EXISTS binance_indicator_point (
+              id BIGSERIAL PRIMARY KEY,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              symbol TEXT NOT NULL,
+              interval TEXT NOT NULL,
+              close DOUBLE PRECISION NOT NULL,
+              ema_fast DOUBLE PRECISION,
+              ema_slow DOUBLE PRECISION,
+              rsi DOUBLE PRECISION,
+              blog_ma_score DOUBLE PRECISION,
+              blog_rsi_score DOUBLE PRECISION,
+              raw_json JSONB
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_binance_ind_symbol_time ON binance_indicator_point(symbol, created_at);
+
             CREATE TABLE IF NOT EXISTS binance_order (
               id BIGSERIAL PRIMARY KEY,
               created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -61,5 +77,25 @@ def init_db(conn):
         cur.execute("ALTER TABLE binance_order ADD COLUMN IF NOT EXISTS oco_order_list_id TEXT")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_order_created ON binance_order(created_at)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_order_symbol ON binance_order(symbol)")
+
+        # indicator table evolution
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS binance_indicator_point (
+              id BIGSERIAL PRIMARY KEY,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              symbol TEXT NOT NULL,
+              interval TEXT NOT NULL,
+              close DOUBLE PRECISION NOT NULL,
+              ema_fast DOUBLE PRECISION,
+              ema_slow DOUBLE PRECISION,
+              rsi DOUBLE PRECISION,
+              blog_ma_score DOUBLE PRECISION,
+              blog_rsi_score DOUBLE PRECISION,
+              raw_json JSONB
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_ind_symbol_time ON binance_indicator_point(symbol, created_at)")
 
     conn.commit()
