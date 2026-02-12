@@ -206,9 +206,11 @@ def main() -> None:
                 price = min(best_ask, max_price)
                 if price <= 0:
                     continue
+                # Avoid float artifacts (0.029999999) that can break amount precision checks.
+                price = float(f"{price:.3f}")
+
                 size = max_notional / price
-                # Polymarket amount precision can be strict; round to 2 decimals to be safe.
-                size = round(size, 2)
+                size = float(f"{size:.2f}")
                 notional = price * size
                 if todays_notional + notional > daily_cap:
                     continue
