@@ -95,6 +95,9 @@ def main() -> None:
     max_per = Decimal(str(_env_float("MAX_QUOTE_PER_TRADE", 1.0))).quantize(Decimal("0.01"))
     daily_cap = Decimal(str(_env_float("DAILY_QUOTE_CAP", 5.0))).quantize(Decimal("0.01"))
 
+    # Binance enforces per-symbol minimum notional (often $5). We'll respect it.
+    min_notional_floor = Decimal(str(_env_float("MIN_NOTIONAL_FLOOR", 5.0))).quantize(Decimal("0.01"))
+
     symbols = [s.strip().upper() for s in (os.getenv("SYMBOLS") or "BTCUSDT,ETHUSDT").split(",") if s.strip()]
     interval = (os.getenv("INTERVAL") or "15m").strip()
     poll = int(os.getenv("POLL_SECONDS") or "20")
@@ -197,7 +200,7 @@ def main() -> None:
                 if time.time() - last_trade_ts < 60:
                     continue
 
-                if spent_today + max_per > daily_cap:
+                if spent_today + quote_to_use > daily_cap:
                     continue
 
                 last_price = Decimal(str(closes[-1]))
@@ -205,7 +208,17 @@ def main() -> None:
 
                 # Submit BUY
                 run_id = str(uuid.uuid4())
-                evidence = {"signal": sig.__dict__, "blog_ma": ma_score, "blog_rsi": rsi_score, "last_close": float(last_price)}
+                quote_to_use = max_per
+                if quote_to_use < min_notional_floor:
+                    quote_to_use = min_notional_floor
+
+                evidence = {
+                    "signal": sig.__dict__,
+                    "blog_ma": ma_score,
+                    "blog_rsi": rsi_score,
+                    "last_close": float(last_price),
+                    "quote_to_use": float(quote_to_use),
+                }
 
                 with conn.cursor() as cur:
                     cur.execute(
@@ -227,14 +240,14 @@ def main() -> None:
                         VALUES (%s,'BUY','created',%s,%s::jsonb)
                         RETURNING id
                         """,
-                        (sym, float(max_per), json.dumps(req)),
+                        (sym, float(quote_to_use), json.dumps(req)),
                     )
                     oid_row = cur.fetchone()
                     order_row_id = oid_row[0]
                     conn.commit()
 
                 try:
-                    resp = api.new_order_market_buy_quote(sym, float(max_per))
+                    resp = api.new_order_market_buy_quote(sym, float(quote_to_use))
                     # derive filled base qty & avg price
                     fills = resp.get("fills") or []
                     base_qty = Decimal("0")
