@@ -114,8 +114,12 @@ def main() -> None:
     min_score = float(os.getenv("MIN_SIGNAL_SCORE") or "0.7")
 
     testnet_always_buy = _env_bool("TESTNET_ALWAYS_BUY", False)
-    if testnet_always_buy and "testnet" not in base_url:
-        raise RuntimeError("TESTNET_ALWAYS_BUY is only allowed when BINANCE_BASE_URL is a testnet endpoint")
+    testnet_no_oco = _env_bool("TESTNET_NO_OCO", False)
+    hold_seconds = int(os.getenv("HOLD_SECONDS") or "60")
+    hold_seconds = max(5, min(hold_seconds, 3600))
+
+    if (testnet_always_buy or testnet_no_oco) and "testnet" not in base_url:
+        raise RuntimeError("TESTNET_* options are only allowed when BINANCE_BASE_URL is a testnet endpoint")
 
     conn = connect()
     init_db(conn)
@@ -175,6 +179,84 @@ def main() -> None:
                     """
                 )
                 spent_today = Decimal(str(cur.fetchone()[0] or 0.0)).quantize(Decimal("0.01"))
+
+            # Exit due positions (testnet no-OCO mode)
+            if enable and testnet_no_oco:
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            """
+                            SELECT id, symbol, entry_base_qty
+                            FROM binance_position
+                            WHERE status='open'
+                              AND planned_exit_at IS NOT NULL
+                              AND planned_exit_at <= now()
+                            ORDER BY planned_exit_at ASC
+                            LIMIT 5
+                            """
+                        )
+                        due = cur.fetchall() or []
+                    for pid, sym, entry_base_qty in due:
+                        step, tick = sym_filters.get(sym)
+                        # format quantity with step size
+                        from decimal import Decimal, ROUND_DOWN
+
+                        qty = Decimal(str(entry_base_qty or 0))
+                        if qty <= 0:
+                            continue
+                        # quantize DOWN to step
+                        q2 = (qty / step).to_integral_value(rounding=ROUND_DOWN) * step
+                        # to string
+                        s = format(q2, 'f')
+                        if '.' in s:
+                            s = s.rstrip('0').rstrip('.')
+
+                        # place market sell
+                        sell_resp = api.new_order_market_sell_quantity(sym, s)
+
+                        # compute realized quote from fills
+                        fills = sell_resp.get('fills') or []
+                        quote_got = 0.0
+                        base_sold = 0.0
+                        for f in fills:
+                            q = float(f.get('qty') or 0)
+                            p = float(f.get('price') or 0)
+                            base_sold += q
+                            quote_got += q * p
+                        exit_price = (quote_got / base_sold) if base_sold > 0 else None
+
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """
+                                UPDATE binance_position
+                                SET status='closed',
+                                    exit_order_id=%s,
+                                    exit_price=%s,
+                                    exit_quote_qty=%s,
+                                    pnl_quote=(%s - COALESCE(entry_quote_qty,0))
+                                WHERE id=%s
+                                """,
+                                (str(sell_resp.get('orderId')), exit_price, quote_got, quote_got, int(pid)),
+                            )
+                            # also log the SELL order
+                            cur.execute(
+                                """
+                                INSERT INTO binance_order(symbol, side, status, order_id, quote_qty, base_qty, price, position_id, raw_response_json)
+                                VALUES (%s,'SELL','submitted',%s,%s,%s,%s,%s,%s::jsonb)
+                                """,
+                                (
+                                    sym,
+                                    str(sell_resp.get('orderId')),
+                                    quote_got,
+                                    float(base_sold) if base_sold else None,
+                                    exit_price,
+                                    int(pid),
+                                    __import__('json').dumps(sell_resp),
+                                ),
+                            )
+                            conn.commit()
+                except Exception as e:
+                    logger.warning("exit loop error: %s", e)
 
             for sym in symbols:
                 kl = api.klines(sym, interval, limit=200)
@@ -306,42 +388,95 @@ def main() -> None:
                             s = s.rstrip('0').rstrip('.')
                         return s
 
-                    oco = api.new_oco_sell(
-                        sym,
-                        quantity=fmt_dec(qty),
-                        price=fmt_dec(tp_price),
-                        stop_price=fmt_dec(sl_price),
-                        stop_limit_price=fmt_dec(sl_limit),
-                    )
+                    if testnet_no_oco:
+                        # Create a position record and plan an exit after HOLD_SECONDS.
+                        planned_exit_sql = "now() + (%s || ' seconds')::interval"
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                f"""
+                                INSERT INTO binance_position(symbol, entry_order_id, entry_price, entry_base_qty, entry_quote_qty, target_exit_price, stop_exit_price, planned_exit_at, raw_json)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,{planned_exit_sql},%s::jsonb)
+                                RETURNING id
+                                """,
+                                (
+                                    sym,
+                                    str(resp.get('orderId')),
+                                    float(avg_price),
+                                    float(qty),
+                                    float(quote_to_use),
+                                    float(tp_price),
+                                    float(sl_price),
+                                    str(hold_seconds),
+                                    json.dumps({"buy": resp, "mode": "testnet_no_oco"}),
+                                ),
+                            )
+                            pos_id = int(cur.fetchone()[0])
 
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            """
-                            UPDATE binance_order
-                            SET status='submitted',
-                                order_id=%s,
-                                base_qty=%s,
-                                price=%s,
-                                take_profit_price=%s,
-                                stop_loss_price=%s,
-                                stop_limit_price=%s,
-                                oco_order_list_id=%s,
-                                raw_response_json=%s::jsonb
-                            WHERE id=%s
-                            """,
-                            (
-                                str(resp.get("orderId")),
-                                float(qty),
-                                float(avg_price),
-                                float(tp_price),
-                                float(sl_price),
-                                float(sl_limit),
-                                str(oco.get("orderListId")) if isinstance(oco, dict) and oco.get("orderListId") is not None else None,
-                                json.dumps({"buy": resp, "oco": oco}),
-                                order_row_id,
-                            ),
+                            cur.execute(
+                                """
+                                UPDATE binance_order
+                                SET status='submitted',
+                                    order_id=%s,
+                                    base_qty=%s,
+                                    price=%s,
+                                    take_profit_price=%s,
+                                    stop_loss_price=%s,
+                                    stop_limit_price=%s,
+                                    position_id=%s,
+                                    raw_response_json=%s::jsonb
+                                WHERE id=%s
+                                """,
+                                (
+                                    str(resp.get("orderId")),
+                                    float(qty),
+                                    float(avg_price),
+                                    float(tp_price),
+                                    float(sl_price),
+                                    float(sl_limit),
+                                    pos_id,
+                                    json.dumps({"buy": resp}),
+                                    order_row_id,
+                                ),
+                            )
+                            conn.commit()
+
+                    else:
+                        oco = api.new_oco_sell(
+                            sym,
+                            quantity=fmt_dec(qty),
+                            price=fmt_dec(tp_price),
+                            stop_price=fmt_dec(sl_price),
+                            stop_limit_price=fmt_dec(sl_limit),
                         )
-                        conn.commit()
+
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """
+                                UPDATE binance_order
+                                SET status='submitted',
+                                    order_id=%s,
+                                    base_qty=%s,
+                                    price=%s,
+                                    take_profit_price=%s,
+                                    stop_loss_price=%s,
+                                    stop_limit_price=%s,
+                                    oco_order_list_id=%s,
+                                    raw_response_json=%s::jsonb
+                                WHERE id=%s
+                                """,
+                                (
+                                    str(resp.get("orderId")),
+                                    float(qty),
+                                    float(avg_price),
+                                    float(tp_price),
+                                    float(sl_price),
+                                    float(sl_limit),
+                                    str(oco.get("orderListId")) if isinstance(oco, dict) and oco.get("orderListId") is not None else None,
+                                    json.dumps({"buy": resp, "oco": oco}),
+                                    order_row_id,
+                                ),
+                            )
+                            conn.commit()
 
                     last_trade_ts = time.time()
 

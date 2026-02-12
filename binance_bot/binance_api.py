@@ -52,7 +52,7 @@ class BinanceApi:
         return r.json()
 
     def new_order_market_buy_quote(self, symbol: str, quote_qty: float) -> dict:
-        # MARKET BUY with quoteOrderQty is easiest for a "$1" constraint.
+        # MARKET BUY with quoteOrderQty is easiest for a "$-capped" constraint.
         ts = self.server_time()
         params = {
             "symbol": symbol,
@@ -68,7 +68,24 @@ class BinanceApi:
             raise RuntimeError(f"POST /api/v3/order failed: {r.status_code} {r.text}")
         return r.json()
 
+    def new_order_market_sell_quantity(self, symbol: str, quantity: str) -> dict:
+        ts = self.server_time()
+        params = {
+            "symbol": symbol,
+            "side": "SELL",
+            "type": "MARKET",
+            "quantity": quantity,
+            "timestamp": ts,
+            "recvWindow": 5000,
+        }
+        q = self._sign(params)
+        r = self.session.post(self.base_url + "/api/v3/order", data=q, timeout=10)
+        if r.status_code != 200:
+            raise RuntimeError(f"POST /api/v3/order (SELL) failed: {r.status_code} {r.text}")
+        return r.json()
+
     def new_oco_sell(self, symbol: str, quantity: str, price: str, stop_price: str, stop_limit_price: str) -> dict:
+        """Place an OCO SELL order for spot."""
         ts = self.server_time()
         params = {
             "symbol": symbol,
