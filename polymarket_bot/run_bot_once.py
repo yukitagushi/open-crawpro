@@ -286,7 +286,9 @@ def main() -> None:
                     p = Decimal(str(price))
                     if p <= 0:
                         continue
-                    size_d = (notional_target / p).quantize(Decimal("0.00001"), rounding=ROUND_DOWN)
+                    size_d = (notional_target / p).to_integral_value(rounding=ROUND_DOWN)
+                    if size_d <= 0:
+                        continue
                     size = float(size_d)
                     plans.append(
                         {

@@ -219,8 +219,11 @@ def main() -> None:
                 if p <= 0:
                     continue
 
-                # compute share size (taker amount) with 5 decimals, round DOWN so notional <= target
-                size_d = (notional_target / p).quantize(Decimal("0.00001"), rounding=ROUND_DOWN)
+                # Choose an *integer* number of tokens so that (price * size) lands on 2-decimal USDC exactly.
+                # This avoids Polymarket's strict maker/taker precision validation errors.
+                size_d = (notional_target / p).to_integral_value(rounding=ROUND_DOWN)
+                if size_d <= 0:
+                    continue
                 size = float(size_d)
                 notional = float((p * size_d).quantize(Decimal("0.01"), rounding=ROUND_DOWN))
                 if todays_notional + notional > daily_cap:
