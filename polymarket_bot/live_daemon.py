@@ -93,6 +93,7 @@ def main() -> None:
     max_notional = _env_float("MAX_NOTIONAL_USD", 1.0)
     max_price = _env_float("MAX_PRICE", 0.99)
     daily_cap = _env_float("DAILY_NOTIONAL_CAP_USD", 20.0)
+    min_signals_last_30m = int(os.getenv("MIN_SIGNALS_LAST_30M") or "0")
 
     allow = (os.getenv("MARKET_ALLOWLIST") or "").strip()
     if not allow:
@@ -115,8 +116,10 @@ def main() -> None:
     logger.info("Resolved market %s: %s (outcome=%s token=%s)", allow_market_id, question, outcome_name, token_id)
 
     last_trade_ts = 0.0
+    loop_i = 0
 
     while True:
+        loop_i += 1
         started = time.time()
         try:
             ob = infra.clob.get_order_book(token_id)
@@ -169,8 +172,22 @@ def main() -> None:
 
             conn.commit()
 
+            # Periodic status log
+            if loop_i % 15 == 0:
+                logger.info(
+                    "tick market=%s outcome=%s bid=%s ask=%s mid=%s signals30m=%s todays_notional=%.2f enable_live=%s",
+                    allow_market_id,
+                    outcome_name,
+                    best_bid,
+                    best_ask,
+                    mid,
+                    signals_last_30m,
+                    todays_notional,
+                    enable_live,
+                )
+
             # Simple entry gate (v1)
-            if enable_live and best_ask is not None and signals_last_30m > 0:
+            if enable_live and best_ask is not None and signals_last_30m >= min_signals_last_30m:
                 spread = None
                 if best_bid is not None:
                     spread = best_ask - best_bid
