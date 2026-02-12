@@ -442,7 +442,10 @@ def main() -> None:
                                 size=float(plan["size"]),
                                 side=str(plan["side"]),
                             )
-                            resp = infra.clob.create_and_post_order(order_args)
+
+                            # Use FOK to avoid leaving open orders when we expect immediate fills.
+                            order = infra.clob.create_order(order_args)
+                            resp = infra.clob.post_order(order, orderType="FOK", post_only=False)
 
                             # Try to extract order id best-effort
                             order_id = None
