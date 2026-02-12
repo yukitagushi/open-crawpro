@@ -15,6 +15,12 @@ if [ -f .env ]; then
   set +a
 fi
 
+# Activate venv (created locally)
+if [ -f .venv311/bin/activate ]; then
+  # shellcheck disable=SC1091
+  source .venv311/bin/activate
+fi
+
 # Defaults
 : "${POLL_SECONDS:=20}"
 
