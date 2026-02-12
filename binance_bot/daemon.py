@@ -118,6 +118,8 @@ def main() -> None:
     testnet_no_oco = _env_bool("TESTNET_NO_OCO", False)
     hold_seconds = int(os.getenv("HOLD_SECONDS") or "60")
     hold_seconds = max(5, min(hold_seconds, 3600))
+    max_open_positions = int(os.getenv("MAX_OPEN_POSITIONS") or "1")
+    max_open_positions = max(0, min(max_open_positions, 100))
 
     if (testnet_always_buy or testnet_no_oco) and "testnet" not in base_url:
         raise RuntimeError("TESTNET_* options are only allowed when BINANCE_BASE_URL is a testnet endpoint")
@@ -322,8 +324,17 @@ def main() -> None:
                 if quote_to_use < (min_notional_floor + min_notional_buffer):
                     quote_to_use = (min_notional_floor + min_notional_buffer)
 
-                if spent_today + quote_to_use > daily_cap:
-                    continue
+                # When running testnet_no_oco, we prefer limiting concurrent exposure over daily spent.
+                if not testnet_no_oco:
+                    if spent_today + quote_to_use > daily_cap:
+                        continue
+                else:
+                    if max_open_positions > 0:
+                        with conn.cursor() as cur:
+                            cur.execute("SELECT COUNT(*)::int FROM binance_position WHERE status='open'")
+                            open_n = int(cur.fetchone()[0] or 0)
+                        if open_n >= max_open_positions:
+                            continue
 
                 # Submit BUY
                 run_id = str(uuid.uuid4())
