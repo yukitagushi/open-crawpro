@@ -7,14 +7,31 @@ from indicators import ema, rsi
 
 @dataclass(frozen=True)
 class Signal:
-    kind: str  # ema_cross | rsi_dip
+    kind: str  # ema_cross | rsi_dip | ema_cross+rsi_dip | test_always_buy
     score: float
     target_pct: float
     stop_pct: float
     evidence: dict
 
 
-def decide_signal(closes: list[float], *, ema_fast: int, ema_slow: int, rsi_period: int, blog_ma_score: float, blog_rsi_score: float, tp_pct: float, sl_pct: float) -> Signal | None:
+def decide_signal(
+    closes: list[float],
+    *,
+    ema_fast: int,
+    ema_slow: int,
+    rsi_period: int,
+    blog_ma_score: float,
+    blog_rsi_score: float,
+    tp_pct: float,
+    sl_pct: float,
+    min_score: float = 0.7,
+    always_buy: bool = False,
+) -> Signal | None:
+    """Return a trading signal or None.
+
+    - always_buy=True is intended ONLY for testnet load testing.
+    """
+
     ef = ema(closes, ema_fast)
     es = ema(closes, ema_slow)
     rv = rsi(closes, rsi_period)
@@ -27,8 +44,8 @@ def decide_signal(closes: list[float], *, ema_fast: int, ema_slow: int, rsi_peri
     w_rsi = blog_rsi_score / total
 
     # simple conditions
-    ema_cross = (ef > es)
-    rsi_dip = (rv < 30)
+    ema_cross = ef > es
+    rsi_dip = rv < 30
 
     score = 0.0
     kind = None
@@ -39,12 +56,31 @@ def decide_signal(closes: list[float], *, ema_fast: int, ema_slow: int, rsi_peri
         score += 0.6 * w_rsi
         kind = "rsi_dip" if kind is None else kind
 
-    # extra: boost if both agree
+    # boost if both agree
     if ema_cross and rsi_dip:
         score += 0.4
         kind = "ema_cross+rsi_dip"
 
-    if score < 0.7:
+    if always_buy:
+        return Signal(
+            kind="test_always_buy" if kind is None else f"{kind}+test_always_buy",
+            score=max(score, 1.0),
+            target_pct=tp_pct,
+            stop_pct=sl_pct,
+            evidence={
+                "ema_fast": ef,
+                "ema_slow": es,
+                "rsi": rv,
+                "w_ma": w_ma,
+                "w_rsi": w_rsi,
+                "always_buy": True,
+            },
+        )
+
+    if kind is None:
+        return None
+
+    if score < min_score:
         return None
 
     return Signal(

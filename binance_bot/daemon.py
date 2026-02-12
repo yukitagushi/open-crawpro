@@ -105,6 +105,11 @@ def main() -> None:
 
     tp_pct = float(os.getenv("TAKE_PROFIT_PCT") or "0.006")
     sl_pct = float(os.getenv("STOP_LOSS_PCT") or "0.004")
+    min_score = float(os.getenv("MIN_SIGNAL_SCORE") or "0.7")
+
+    testnet_always_buy = _env_bool("TESTNET_ALWAYS_BUY", False)
+    if testnet_always_buy and "testnet" not in base_url:
+        raise RuntimeError("TESTNET_ALWAYS_BUY is only allowed when BINANCE_BASE_URL is a testnet endpoint")
 
     conn = connect()
     init_db(conn)
@@ -182,6 +187,8 @@ def main() -> None:
                     blog_rsi_score=rsi_score,
                     tp_pct=tp_pct,
                     sl_pct=sl_pct,
+                    min_score=min_score,
+                    always_buy=(testnet_always_buy and enable),
                 )
                 if not sig:
                     continue
