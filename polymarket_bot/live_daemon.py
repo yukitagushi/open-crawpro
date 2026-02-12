@@ -234,7 +234,7 @@ def main() -> None:
                     try:
                         from py_clob_client.clob_types import OrderArgs  # type: ignore
 
-                        order_args = OrderArgs(token_id=str(token_id), price=float(price), size=float(size), side="buy")
+                        order_args = OrderArgs(token_id=str(token_id), price=float(price), size=float(size), side="BUY")
                         order = infra.clob.create_order(order_args)
                         resp = infra.clob.post_order(order, orderType="FOK", post_only=False)
 

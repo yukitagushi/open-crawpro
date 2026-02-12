@@ -440,7 +440,7 @@ def main() -> None:
                                 token_id=str(plan["token_id"]),
                                 price=float(plan["limit_price"]),
                                 size=float(plan["size"]),
-                                side=str(plan["side"]),
+                                side=str(plan["side"]).upper(),
                             )
 
                             # Use FOK to avoid leaving open orders when we expect immediate fills.
