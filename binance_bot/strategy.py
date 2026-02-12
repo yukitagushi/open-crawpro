@@ -35,6 +35,13 @@ def decide_signal(
     ef = ema(closes, ema_fast)
     es = ema(closes, ema_slow)
     rv = rsi(closes, rsi_period)
+
+    # In testnet always-buy mode, we don't block on indicator availability.
+    if always_buy and closes:
+        ef = ef if ef is not None else closes[-1]
+        es = es if es is not None else closes[-1]
+        rv = rv if rv is not None else 50.0
+
     if ef is None or es is None or rv is None:
         return None
 
