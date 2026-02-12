@@ -207,6 +207,8 @@ def main() -> None:
                 if price <= 0:
                     continue
                 size = max_notional / price
+                # Polymarket amount precision can be strict; round to 2 decimals to be safe.
+                size = round(size, 2)
                 notional = price * size
                 if todays_notional + notional > daily_cap:
                     continue

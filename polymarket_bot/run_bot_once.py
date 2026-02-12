@@ -279,6 +279,7 @@ def main() -> None:
                         continue
                     price = min(best_ask, MAX_PRICE)
                     size = MAX_NOTIONAL_USD / max(price, 1e-9)
+                    size = round(size, 2)
                     plans.append(
                         {
                             "market_id": chosen.market_id,
