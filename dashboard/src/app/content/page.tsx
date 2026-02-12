@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { hasDatabase, sql } from '@/lib/db';
+import { AutoReload } from '../_components/AutoReload';
 
 function fmt(ts: any) {
   if (!ts) return '-';
@@ -47,6 +48,7 @@ export default async function Page() {
 
   return (
     <main className="container">
+      <AutoReload seconds={30} />
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="h1">収集記事</div>
         <div className="muted">RSS/ブログ等の収集ログ（最新200件）。Injection検知は要注意としてフラグ付け。</div>

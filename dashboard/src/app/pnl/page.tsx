@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { hasDatabase, sql } from '@/lib/db';
 import { LineChart } from '@/lib/linechart';
+import { AutoReload } from '../_components/AutoReload';
 
 function fmt(ts: any) {
   if (!ts) return '-';
@@ -51,6 +52,7 @@ export default async function Page() {
 
   return (
     <main className="container">
+      <AutoReload seconds={30} />
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="h1">収益（ペーパー）</div>
         <div className="muted">紙トレードの含み損益（midで評価）。</div>

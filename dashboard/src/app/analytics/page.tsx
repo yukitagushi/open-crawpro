@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { hasDatabase, sql } from '@/lib/db';
+import { AutoReload } from '../_components/AutoReload';
 
 type TagAggRow = { tag: string; cnt: number };
 
@@ -53,6 +54,7 @@ export default async function Page() {
 
   return (
     <main className="container">
+      <AutoReload seconds={30} />
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="h1">分析</div>
         <div className="muted">収集記事/シグナルのタグ集計（どんな指標・テーマが多いか）</div>

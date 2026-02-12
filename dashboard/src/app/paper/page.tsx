@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { hasDatabase, sql } from '@/lib/db';
+import { AutoReload } from '../_components/AutoReload';
 
 function fmt(ts: any) {
   if (!ts) return '-';
@@ -47,6 +48,7 @@ export default async function PaperPage() {
 
   return (
     <main className="container">
+      <AutoReload seconds={30} />
       <div className="grid" style={{ marginBottom: 12 }}>
         <div className="card" style={{ gridColumn: 'span 12' }}>
           <div className="h1">Paper Trading</div>

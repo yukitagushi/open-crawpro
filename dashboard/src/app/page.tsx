@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { hasDatabase, sql } from '@/lib/db';
 import { Sparkline } from '@/lib/sparkline';
+import { AutoReload } from './_components/AutoReload';
 
 type BotRunRow = {
   started_at: string;
@@ -135,6 +136,7 @@ export default async function Page() {
 
   return (
     <main className="container">
+      <AutoReload seconds={30} />
       <div className="grid" style={{ marginBottom: 12 }}>
         <div className="card" style={{ gridColumn: 'span 12' }}>
           <div className="h1">概要</div>
