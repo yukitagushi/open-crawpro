@@ -3,27 +3,7 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { hasDatabase, sql } from '@/lib/db';
 import { AutoReload } from '../../_components/AutoReload';
-
-type Row = {
-  created_at: any;
-  symbol: string;
-  side: string;
-  status: string;
-  quote_qty: number | null;
-  base_qty: number | null;
-  price: number | null;
-  take_profit_price: number | null;
-  stop_loss_price: number | null;
-  stop_limit_price: number | null;
-  oco_order_list_id: string | null;
-  error: string | null;
-};
-
-function fmt(ts: any) {
-  if (!ts) return '-';
-  const s = ts instanceof Date ? ts.toISOString() : String(ts);
-  return s.replace('T', ' ').replace('Z', '');
-}
+import { OrdersTable, type Row } from './client';
 
 export default async function Page() {
   if (!hasDatabase()) {
@@ -68,44 +48,7 @@ export default async function Page() {
       </div>
 
       <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>時刻</th>
-              <th>銘柄</th>
-              <th>方向</th>
-              <th>状態</th>
-              <th>約定価格</th>
-              <th>数量</th>
-              <th>想定利確</th>
-              <th>想定損切</th>
-              <th>OCO</th>
-              <th>エラー</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="muted">まだデータがありません</td>
-              </tr>
-            ) : (
-              rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="mono">{fmt(r.created_at)}</td>
-                  <td className="mono">{r.symbol}</td>
-                  <td className="mono">{r.side}</td>
-                  <td>{r.status}</td>
-                  <td className="mono">{r.price ?? '-'}</td>
-                  <td className="mono">{r.base_qty ?? '-'}</td>
-                  <td className="mono">{r.take_profit_price ?? '-'}</td>
-                  <td className="mono">{r.stop_loss_price ?? '-'}</td>
-                  <td className="mono">{r.oco_order_list_id ?? '-'}</td>
-                  <td style={{ maxWidth: 420 }} className="muted">{r.error ?? ''}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <OrdersTable rows={rows} />
       </div>
     </main>
   );
