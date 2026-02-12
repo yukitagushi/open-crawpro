@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 
 from db_pg import connect, init_db
 from infra import Infra, load_config_from_env
-from gamma import fetch_events, extract_outcome_token_ids
+from gamma import extract_outcome_token_ids
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("live_daemon")
@@ -57,30 +57,31 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def resolve_outcome_token_id(*, market_slug: str, allow_market_id: str, outcome_name: str) -> tuple[str, str]:
-    """Resolve outcome token_id and question via Gamma slug.
+def fetch_market(market_id: str) -> dict:
+    import requests
+
+    r = requests.get(f"https://gamma-api.polymarket.com/markets/{market_id}", timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    if not isinstance(data, dict):
+        raise RuntimeError("Unexpected Gamma /markets/{id} response")
+    return data
+
+
+def resolve_outcome_token_id(*, market_id: str, outcome_name: str) -> tuple[str, str]:
+    """Resolve outcome token_id and question via Gamma /markets/{id}.
 
     outcome_name examples: "Yes", "No", "Up", "Down".
     """
-    evs = fetch_events(limit=1, offset=0, params={"slug": market_slug})
-    if not evs or not isinstance(evs[0], dict):
-        raise RuntimeError("Could not resolve event via MARKET_SLUG")
-    ev = evs[0]
-    q = (ev.get("title") or ev.get("question") or "").strip() or "(no title)"
-    markets = ev.get("markets") or []
-    for m in markets:
-        if not isinstance(m, dict):
-            continue
-        mid = str(m.get("id") or m.get("market_id") or "")
-        if mid != str(allow_market_id):
-            continue
-        mp = extract_outcome_token_ids(m)
-        # case-insensitive match
-        for k, v in mp.items():
-            if k.strip().lower() == outcome_name.strip().lower():
-                return str(v), q
-        raise RuntimeError(f"Outcome token_id missing for outcome={outcome_name} (available={list(mp.keys())})")
-    raise RuntimeError("Allowlisted market_id not found in resolved slug")
+    m = fetch_market(str(market_id))
+    q = (m.get("question") or m.get("title") or "").strip() or "(no title)"
+
+    mp = extract_outcome_token_ids(m)
+    for k, v in mp.items():
+        if k.strip().lower() == outcome_name.strip().lower():
+            return str(v), q
+
+    raise RuntimeError(f"Outcome token_id missing for outcome={outcome_name} (available={list(mp.keys())})")
 
 
 def main() -> None:
@@ -98,9 +99,8 @@ def main() -> None:
         raise RuntimeError("MARKET_ALLOWLIST is required for live daemon")
     allow_market_id = allow.split(",")[0].strip()
 
+    # MARKET_SLUG is optional for the daemon (we resolve via /markets/{id})
     slug = (os.getenv("MARKET_SLUG") or "").strip()
-    if not slug:
-        raise RuntimeError("MARKET_SLUG is required for live daemon")
 
     # Connect DB + infra
     conn = connect()
@@ -111,7 +111,7 @@ def main() -> None:
     infra.connect()
 
     outcome_name = (os.getenv("OUTCOME_NAME") or "Up").strip() or "Up"
-    token_id, question = resolve_outcome_token_id(market_slug=slug, allow_market_id=allow_market_id, outcome_name=outcome_name)
+    token_id, question = resolve_outcome_token_id(market_id=allow_market_id, outcome_name=outcome_name)
     logger.info("Resolved market %s: %s (outcome=%s token=%s)", allow_market_id, question, outcome_name, token_id)
 
     last_trade_ts = 0.0
