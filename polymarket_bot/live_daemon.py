@@ -90,7 +90,8 @@ def main() -> None:
     poll_seconds = max(5, min(poll_seconds, 300))
 
     enable_live = _env_bool("ENABLE_LIVE_TRADING", False)
-    max_notional = _env_float("MAX_NOTIONAL_USD", 1.0)
+    max_notional = _env_float("MAX_NOTIONAL_USD", 1.05)
+    min_notional = _env_float("MIN_NOTIONAL_USD", 1.0)
     max_price = _env_float("MAX_PRICE", 0.99)
     daily_cap = _env_float("DAILY_NOTIONAL_CAP_USD", 20.0)
     min_signals_last_30m = int(os.getenv("MIN_SIGNALS_LAST_30M") or "0")
@@ -214,18 +215,24 @@ def main() -> None:
                 # - taker amount (shares) up to 5 decimals
                 from decimal import Decimal, ROUND_DOWN
 
-                notional_target = Decimal(str(round(max_notional, 2)))  # e.g. 1.00
+                notional_cap = Decimal(str(round(max_notional, 2)))  # e.g. 1.05
+                notional_min = Decimal(str(round(min_notional, 2)))  # e.g. 1.00
                 p = Decimal(str(price))
                 if p <= 0:
                     continue
 
                 # Choose an *integer* number of tokens so that (price * size) lands on 2-decimal USDC exactly.
-                # This avoids Polymarket's strict maker/taker precision validation errors.
-                size_d = (notional_target / p).to_integral_value(rounding=ROUND_DOWN)
+                # Use CEILING to satisfy min $1 order requirement.
+                size_d = (notional_min / p).to_integral_value(rounding=__import__('decimal').ROUND_CEILING)
                 if size_d <= 0:
                     continue
+
+                notional_d = (p * size_d).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+                if notional_d > notional_cap:
+                    continue
+
                 size = float(size_d)
-                notional = float((p * size_d).quantize(Decimal("0.01"), rounding=ROUND_DOWN))
+                notional = float(notional_d)
                 if todays_notional + notional > daily_cap:
                     continue
 
