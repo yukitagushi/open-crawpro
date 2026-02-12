@@ -44,6 +44,8 @@ jobs:
 
           # Bot knobs (safe defaults)
           DRY_RUN: "true"
+          ENABLE_LIVE_TRADING: "false"  # safety switch; set true only when ready
+          DAILY_NOTIONAL_CAP_USD: "20"
           MAX_NOTIONAL_USD: "1.0"
           MAX_PRICE: "0.99"
           DISCOVERY_REQUIRE_OPEN: "true"

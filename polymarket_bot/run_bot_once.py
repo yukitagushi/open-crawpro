@@ -225,6 +225,10 @@ def main() -> None:
         MAX_NOTIONAL_USD = _env_float("MAX_NOTIONAL_USD", 1.0)
         MAX_PRICE = _env_float("MAX_PRICE", 0.55)
 
+        # Live trading requires an explicit opt-in switch
+        ENABLE_LIVE_TRADING = _env_bool("ENABLE_LIVE_TRADING", False)
+        DAILY_NOTIONAL_CAP_USD = _env_float("DAILY_NOTIONAL_CAP_USD", 20.0)
+
         # Optionally pin to a allowlist of condition_id/market_id (comma-separated)
         allowlist_raw = (os.getenv("MARKET_ALLOWLIST") or "").strip()
         allow = {x.strip() for x in allowlist_raw.split(",") if x.strip()} if allowlist_raw else set()
@@ -310,8 +314,63 @@ def main() -> None:
 
             # Save planned order(s) (dry-run) to orders table
             paper_fills_inserted = 0
+            live_orders_submitted = 0
+            live_orders_blocked = 0
+
+            # Pre-compute today's notional spent (safety cap)
+            todays_notional = 0.0
+            try:
+                with conn.cursor() as cur2:
+                    cur2.execute(
+                        """
+                        SELECT COALESCE(SUM(price*size),0)::float8
+                        FROM orders
+                        WHERE status='submitted'
+                          AND side='buy'
+                          AND created_at >= date_trunc('day', now())
+                          AND created_at <  date_trunc('day', now()) + interval '1 day'
+                        """
+                    )
+                    todays_notional = float(cur2.fetchone()[0] or 0.0)
+            except Exception:
+                todays_notional = 0.0
+
             for plan in plans:
                 client_order_id = f"plan-{run.run_id}-{uuid.uuid4().hex[:8]}"
+                # Attach minimal evidence from content signals (last 30 minutes)
+                evidence = {"signals_last_30m": 0, "top_tags": []}
+                try:
+                    with conn.cursor() as cur3:
+                        cur3.execute(
+                            """
+                            SELECT COUNT(*)::int
+                            FROM content_signal
+                            WHERE label='bullish'
+                              AND created_at >= now() - interval '30 minutes'
+                            """
+                        )
+                        evidence["signals_last_30m"] = int(cur3.fetchone()[0] or 0)
+
+                        cur3.execute(
+                            """
+                            SELECT tag, COUNT(*)::int as cnt
+                            FROM (
+                              SELECT unnest(COALESCE(tags, ARRAY[]::text[])) as tag
+                              FROM content_signal
+                              WHERE label='bullish'
+                                AND created_at >= now() - interval '24 hours'
+                            ) t
+                            GROUP BY tag
+                            ORDER BY cnt DESC
+                            LIMIT 5
+                            """
+                        )
+                        evidence["top_tags"] = [r[0] for r in (cur3.fetchall() or []) if r and r[0]]
+                except Exception:
+                    pass
+
+                req_json = {**plan, "evidence": evidence}
+
                 cur.execute(
                     """
                     INSERT INTO orders(client_order_id, condition_id, token_id, side, price, size, status, raw_request_json)
@@ -325,7 +384,7 @@ def main() -> None:
                         float(plan["limit_price"]),
                         float(plan["size"]),
                         "dry_run" if DRY_RUN else "submitted",
-                        __import__("json").dumps(plan),
+                        __import__("json").dumps(req_json),
                     ),
                 )
 
@@ -366,6 +425,42 @@ def main() -> None:
                             paper_fills_inserted += cur.rowcount
                     except Exception as e:
                         logger.warning("paper-trade simulation failed: %s", e)
+
+                # ---- Live trading (explicit opt-in) ----
+                if (not DRY_RUN) and ENABLE_LIVE_TRADING and infra.clob is not None:
+                    try:
+                        # Safety cap
+                        notional = float(plan["limit_price"]) * float(plan["size"])
+                        if todays_notional + notional > DAILY_NOTIONAL_CAP_USD:
+                            live_orders_blocked += 1
+                        else:
+                            from py_clob_client.clob_types import OrderArgs  # type: ignore
+
+                            order_args = OrderArgs(
+                                token_id=str(plan["token_id"]),
+                                price=float(plan["limit_price"]),
+                                size=float(plan["size"]),
+                                side=str(plan["side"]),
+                            )
+                            resp = infra.clob.create_and_post_order(order_args)
+
+                            # Try to extract order id best-effort
+                            order_id = None
+                            if isinstance(resp, dict):
+                                order_id = resp.get("orderID") or resp.get("orderId") or resp.get("id")
+
+                            cur.execute(
+                                "UPDATE orders SET status='submitted', order_id=%s, raw_response_json=%s::jsonb WHERE client_order_id=%s",
+                                (str(order_id) if order_id else None, __import__("json").dumps(resp), client_order_id),
+                            )
+                            live_orders_submitted += 1
+                            todays_notional += notional
+                    except Exception as e:
+                        live_orders_blocked += 1
+                        cur.execute(
+                            "UPDATE orders SET status='error', error=%s WHERE client_order_id=%s",
+                            (str(e), client_order_id),
+                        )
 
             # Fetch user trades (used as fills) and store them.
             # NOTE: TradeParams currently supports maker_address filter.
@@ -533,7 +628,9 @@ def main() -> None:
                     content_items_inserted=%s,
                     content_injection_flagged=%s,
                     signals_inserted=%s,
-                    signal_snapshots_inserted=%s
+                    signal_snapshots_inserted=%s,
+                    live_orders_submitted=%s,
+                    live_orders_blocked=%s
                 WHERE run_id=%s
                 """,
                 (
@@ -549,6 +646,8 @@ def main() -> None:
                     int(content_injection_flagged),
                     int(signals_inserted),
                     int(signal_snapshots_inserted),
+                    int(live_orders_submitted),
+                    int(live_orders_blocked),
                     run.run_id,
                 ),
             )

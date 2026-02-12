@@ -21,6 +21,8 @@ ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_items_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS content_injection_flagged INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS signals_inserted INTEGER;
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS signal_snapshots_inserted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS live_orders_submitted INTEGER;
+ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS live_orders_blocked INTEGER;
 
 -- config snapshot (safe defaults; helps debugging)
 ALTER TABLE bot_run ADD COLUMN IF NOT EXISTS dry_run BOOLEAN;
