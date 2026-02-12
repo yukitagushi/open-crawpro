@@ -61,6 +61,8 @@ export default async function Page() {
           <span className="muted"> ・ </span>
           <Link href="/binance/market">市場</Link>
           <span className="muted"> ・ </span>
+          <Link href="/binance/market">市場/指標</Link>
+          <span className="muted"> ・ </span>
           <Link href="/binance/signals">シグナル</Link>
         </div>
       </div>

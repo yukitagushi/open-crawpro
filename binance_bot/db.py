@@ -48,6 +48,15 @@ def init_db(conn):
 
             CREATE INDEX IF NOT EXISTS idx_binance_ind_symbol_time ON binance_indicator_point(symbol, created_at);
 
+            CREATE TABLE IF NOT EXISTS binance_balance_snapshot (
+              id BIGSERIAL PRIMARY KEY,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              total_usdt_est DOUBLE PRECISION,
+              raw_json JSONB
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_binance_bal_time ON binance_balance_snapshot(created_at);
+
             CREATE TABLE IF NOT EXISTS binance_order (
               id BIGSERIAL PRIMARY KEY,
               created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -97,5 +106,18 @@ def init_db(conn):
             """
         )
         cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_ind_symbol_time ON binance_indicator_point(symbol, created_at)")
+
+        # balance snapshots
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS binance_balance_snapshot (
+              id BIGSERIAL PRIMARY KEY,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              total_usdt_est DOUBLE PRECISION,
+              raw_json JSONB
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_binance_bal_time ON binance_balance_snapshot(created_at)")
 
     conn.commit()

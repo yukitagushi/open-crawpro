@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from binance_api import BinanceApi
 from db import connect, init_db
 from strategy import decide_signal
+from indicators import ema, rsi
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("binance_daemon")
@@ -129,11 +130,35 @@ def main() -> None:
     logger.info("binance daemon started symbols=%s interval=%s enable_trading=%s", symbols, interval, enable)
 
     last_trade_ts = 0.0
+    last_balance_ts = 0.0
 
     while True:
         t0 = time.time()
         try:
             ma_score, rsi_score = blog_scores(conn)
+
+            # Balance snapshot (rough USDT estimate) every ~60s
+            if time.time() - last_balance_ts > 60:
+                try:
+                    acct = api.account()
+                    bal = {b.get('asset'): {'free': b.get('free'), 'locked': b.get('locked')} for b in (acct.get('balances') or [])}
+                    usdt = float(bal.get('USDT', {}).get('free') or 0) + float(bal.get('USDT', {}).get('locked') or 0)
+                    # Use latest klines to estimate BTC/ETH value in USDT
+                    btc_close = float(api.klines('BTCUSDT', interval, limit=1)[0][4])
+                    eth_close = float(api.klines('ETHUSDT', interval, limit=1)[0][4])
+                    btc_amt = float(bal.get('BTC', {}).get('free') or 0) + float(bal.get('BTC', {}).get('locked') or 0)
+                    eth_amt = float(bal.get('ETH', {}).get('free') or 0) + float(bal.get('ETH', {}).get('locked') or 0)
+                    total = usdt + btc_amt * btc_close + eth_amt * eth_close
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "INSERT INTO binance_balance_snapshot(total_usdt_est, raw_json) VALUES (%s,%s::jsonb)",
+                            (__import__('math').floor(total * 100) / 100.0, json.dumps({'usdt': usdt, 'btc': btc_amt, 'eth': eth_amt, 'btc_close': btc_close, 'eth_close': eth_close})),
+                        )
+                        conn.commit()
+                    last_balance_ts = time.time()
+                except Exception:
+                    # ignore balance errors (still can compute indicators)
+                    last_balance_ts = time.time()
 
             # naive daily cap check (DB)
             with conn.cursor() as cur:

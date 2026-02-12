@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { hasDatabase, sql } from '@/lib/db';
 import { AutoReload } from '../../_components/AutoReload';
 
-type Row = {
+type IndRow = {
   created_at: any;
   symbol: string;
   interval: string;
@@ -14,6 +14,11 @@ type Row = {
   rsi: number | null;
   blog_ma_score: number | null;
   blog_rsi_score: number | null;
+};
+
+type BalRow = {
+  created_at: any;
+  total_usdt_est: number | null;
 };
 
 function fmt(ts: any) {
@@ -37,7 +42,7 @@ export default async function Page() {
     );
   }
 
-  const rows = await sql<Row>(
+  const inds = await sql<IndRow>(
     `
     SELECT created_at, symbol, interval, close, ema_fast, ema_slow, rsi, blog_ma_score, blog_rsi_score
     FROM binance_indicator_point
@@ -46,58 +51,87 @@ export default async function Page() {
     `
   );
 
+  const bals = await sql<BalRow>(
+    `
+    SELECT created_at, total_usdt_est
+    FROM binance_balance_snapshot
+    ORDER BY created_at DESC
+    LIMIT 50
+    `
+  );
+
   return (
     <main className="container">
       <AutoReload seconds={30} />
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="h1">Binance 市場（指標）</div>
-        <div className="muted">BTC/ETH 15分足の指標スナップショット（常に保存）</div>
+        <div className="h1">Binance 市場/指標</div>
+        <div className="muted">BTC/ETH 15分足の指標スナップショットと資産推定</div>
         <div style={{ marginTop: 8 }}>
-          <Link href="/">← 戻る</Link>
-          <span className="muted"> ・ </span>
           <Link href="/binance/signals">シグナル</Link>
           <span className="muted"> ・ </span>
           <Link href="/binance/orders">注文</Link>
         </div>
       </div>
 
-      <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>時刻</th>
-              <th>銘柄</th>
-              <th>足</th>
-              <th>終値</th>
-              <th>EMA fast</th>
-              <th>EMA slow</th>
-              <th>RSI</th>
-              <th>記事MA</th>
-              <th>記事RSI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="muted">まだデータがありません（常駐が起動しているか確認してください）</td>
-              </tr>
+      <div className="grid">
+        <div className="card" style={{ gridColumn: 'span 6' }}>
+          <div style={{ fontWeight: 800 }}>資産推定（USDT換算）</div>
+          <div className="muted">binance_balance_snapshot.total_usdt_est</div>
+          <div style={{ marginTop: 10 }}>
+            {bals.length === 0 ? (
+              <div className="muted">まだデータがありません</div>
             ) : (
-              rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="mono">{fmt(r.created_at)}</td>
-                  <td className="mono">{r.symbol}</td>
-                  <td className="mono">{r.interval}</td>
-                  <td className="mono">{r.close}</td>
-                  <td className="mono">{r.ema_fast ?? '-'}</td>
-                  <td className="mono">{r.ema_slow ?? '-'}</td>
-                  <td className="mono">{r.rsi ?? '-'}</td>
-                  <td className="mono">{r.blog_ma_score ?? '-'}</td>
-                  <td className="mono">{r.blog_rsi_score ?? '-'}</td>
-                </tr>
-              ))
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {bals.map((r, i) => (
+                  <li key={i} className="mono">
+                    {fmt(r.created_at)} — {r.total_usdt_est ?? '-'}
+                  </li>
+                ))}
+              </ul>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        <div className="card" style={{ gridColumn: 'span 6' }}>
+          <div style={{ fontWeight: 800 }}>直近の指標スナップショット</div>
+          <div className="muted">close / EMA / RSI / ブログスコア</div>
+          <div style={{ marginTop: 10, overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>時刻</th>
+                  <th>銘柄</th>
+                  <th>終値</th>
+                  <th>EMA(9)</th>
+                  <th>EMA(21)</th>
+                  <th>RSI</th>
+                  <th>MAスコア</th>
+                  <th>RSIスコア</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inds.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="muted">まだデータがありません</td>
+                  </tr>
+                ) : (
+                  inds.map((r, i) => (
+                    <tr key={i}>
+                      <td className="mono">{fmt(r.created_at)}</td>
+                      <td className="mono">{r.symbol}</td>
+                      <td className="mono">{r.close}</td>
+                      <td className="mono">{r.ema_fast ?? '-'}</td>
+                      <td className="mono">{r.ema_slow ?? '-'}</td>
+                      <td className="mono">{r.rsi ?? '-'}</td>
+                      <td className="mono">{r.blog_ma_score ?? '-'}</td>
+                      <td className="mono">{r.blog_rsi_score ?? '-'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </main>
   );
