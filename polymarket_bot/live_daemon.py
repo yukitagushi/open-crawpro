@@ -123,8 +123,11 @@ def main() -> None:
         started = time.time()
         try:
             ob = infra.clob.get_order_book(token_id)
-            best_bid = float(ob.bids[0].price) if getattr(ob, "bids", None) else None
-            best_ask = float(ob.asks[0].price) if getattr(ob, "asks", None) else None
+            bids = list(getattr(ob, "bids", None) or [])
+            asks = list(getattr(ob, "asks", None) or [])
+
+            best_bid = max((float(b.price) for b in bids), default=None)
+            best_ask = min((float(a.price) for a in asks), default=None)
             mid = None
             if best_bid is not None and best_ask is not None:
                 mid = (best_bid + best_ask) / 2.0
@@ -142,7 +145,7 @@ def main() -> None:
                         best_bid,
                         best_ask,
                         mid,
-                        json.dumps({"bids": [b.__dict__ for b in getattr(ob, "bids", [])[:3]], "asks": [a.__dict__ for a in getattr(ob, "asks", [])[:3]]}),
+                        json.dumps({"bids": [getattr(b, "__dict__", {}) for b in bids[:3]], "asks": [getattr(a, "__dict__", {}) for a in asks[:3]]}),
                     ),
                 )
 
