@@ -90,6 +90,9 @@ def decide_signal(
     if score < min_score:
         return None
 
+    # In normal mode, only act when we have a real condition.
+    # We already ensured kind is not None above.
+
     return Signal(
         kind=kind,
         score=score,

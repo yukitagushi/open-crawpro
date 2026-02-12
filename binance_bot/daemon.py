@@ -188,39 +188,60 @@ def main() -> None:
                 )
                 spent_today = Decimal(str(cur.fetchone()[0] or 0.0)).quantize(Decimal("0.01"))
 
-            # Exit due positions (testnet no-OCO mode)
+            # Exit positions (testnet no-OCO mode)
+            # - If TP/SL hit, exit immediately
+            # - Else exit at planned_exit_at
             if enable and testnet_no_oco:
                 try:
                     with conn.cursor() as cur:
                         cur.execute(
                             """
-                            SELECT id, symbol, entry_base_qty
+                            SELECT id, symbol, entry_base_qty, target_exit_price, stop_exit_price, planned_exit_at
                             FROM binance_position
                             WHERE status='open'
-                              AND planned_exit_at IS NOT NULL
-                              AND planned_exit_at <= now()
-                            ORDER BY planned_exit_at ASC
-                            LIMIT 5
+                            ORDER BY created_at ASC
+                            LIMIT 20
                             """
                         )
-                        due = cur.fetchall() or []
-                    for pid, sym, entry_base_qty in due:
+                        open_pos = cur.fetchall() or []
+
+                    for pid, sym, entry_base_qty, tp, sl, planned_exit_at in open_pos:
+                        # current price (use last close)
+                        try:
+                            last_close = float(api.klines(sym, interval, limit=1)[0][4])
+                        except Exception:
+                            last_close = None
+
+                        should_exit = False
+                        reason = None
+                        if last_close is not None and tp is not None and last_close >= float(tp):
+                            should_exit = True
+                            reason = 'tp_hit'
+                        if last_close is not None and sl is not None and last_close <= float(sl):
+                            should_exit = True
+                            reason = 'sl_hit'
+                        if planned_exit_at is not None:
+                            # planned exit time reached
+                            with conn.cursor() as cur:
+                                cur.execute("SELECT now() >= %s", (planned_exit_at,))
+                                if bool(cur.fetchone()[0]):
+                                    should_exit = True
+                                    reason = reason or 'timeout'
+
+                        if not should_exit:
+                            continue
+
                         step, tick = sym_filters.get(sym)
-                        # format quantity with step size
                         qty = Decimal(str(entry_base_qty or 0))
                         if qty <= 0:
                             continue
-                        # quantize DOWN to step
                         q2 = (qty / step).to_integral_value(rounding=ROUND_DOWN) * step
-                        # to string
                         s = format(q2, 'f')
                         if '.' in s:
                             s = s.rstrip('0').rstrip('.')
 
-                        # place market sell
                         sell_resp = api.new_order_market_sell_quantity(sym, s)
 
-                        # compute realized quote from fills
                         fills = sell_resp.get('fills') or []
                         quote_got = 0.0
                         base_sold = 0.0
@@ -239,12 +260,19 @@ def main() -> None:
                                     exit_order_id=%s,
                                     exit_price=%s,
                                     exit_quote_qty=%s,
-                                    pnl_quote=(%s - COALESCE(entry_quote_qty,0))
+                                    pnl_quote=(%s - COALESCE(entry_quote_qty,0)),
+                                    raw_json = COALESCE(raw_json,'{}'::jsonb) || %s::jsonb
                                 WHERE id=%s
                                 """,
-                                (str(sell_resp.get('orderId')), exit_price, quote_got, quote_got, int(pid)),
+                                (
+                                    str(sell_resp.get('orderId')),
+                                    exit_price,
+                                    quote_got,
+                                    quote_got,
+                                    __import__('json').dumps({'exit_reason': reason, 'last_close': last_close}),
+                                    int(pid),
+                                ),
                             )
-                            # also log the SELL order
                             cur.execute(
                                 """
                                 INSERT INTO binance_order(symbol, side, status, order_id, quote_qty, base_qty, price, position_id, raw_response_json)
