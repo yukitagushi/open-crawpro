@@ -97,7 +97,9 @@ def main() -> None:
     daily_cap = Decimal(str(_env_float("DAILY_QUOTE_CAP", 5.0))).quantize(Decimal("0.01"))
 
     # Binance enforces per-symbol minimum notional (often $5). We'll respect it.
+    # For OCO exits, we need a bit of buffer so that *sell* legs also satisfy minNotional.
     min_notional_floor = Decimal(str(_env_float("MIN_NOTIONAL_FLOOR", 5.0))).quantize(Decimal("0.01"))
+    min_notional_buffer = Decimal(str(_env_float("MIN_NOTIONAL_BUFFER", 1.0))).quantize(Decimal("0.01"))
 
     symbols = [s.strip().upper() for s in (os.getenv("SYMBOLS") or "BTCUSDT,ETHUSDT").split(",") if s.strip()]
     interval = (os.getenv("INTERVAL") or "15m").strip()
@@ -228,10 +230,11 @@ def main() -> None:
                 last_price = Decimal(str(closes[-1]))
                 step, tick = sym_filters[sym]
 
-                # Determine quote amount respecting exchange minimum notional
+                # Determine quote amount respecting exchange minimum notional.
+                # Add buffer to make OCO legs pass NOTIONAL too.
                 quote_to_use = max_per
-                if quote_to_use < min_notional_floor:
-                    quote_to_use = min_notional_floor
+                if quote_to_use < (min_notional_floor + min_notional_buffer):
+                    quote_to_use = (min_notional_floor + min_notional_buffer)
 
                 if spent_today + quote_to_use > daily_cap:
                     continue
