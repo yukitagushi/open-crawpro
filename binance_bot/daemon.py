@@ -84,7 +84,8 @@ def blog_scores(conn) -> tuple[float, float]:
 
 
 def main() -> None:
-    load_dotenv(override=False)
+    # Explicit path to avoid edge-case failures in some runtimes
+    load_dotenv(dotenv_path=".env", override=False)
 
     api_key = os.getenv("BINANCE_API_KEY") or ""
     api_secret = os.getenv("BINANCE_API_SECRET") or ""
