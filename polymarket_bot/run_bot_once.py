@@ -107,11 +107,20 @@ def main() -> None:
 
                 for source_key, item_id, title, summary, content_text, url in rows:
                     s = score_text(title, summary, content_text)
+
+                    # Tag the content item itself (best-effort)
+                    tags = extract_tags(title, summary, content_text)
+                    try:
+                        cur.execute(
+                            "UPDATE content_item SET tags=%s WHERE source_key=%s AND item_id=%s",
+                            (tags, str(source_key), str(item_id)),
+                        )
+                    except Exception:
+                        pass
+
                     # Only record strong bullish signals for now
                     if s.label != "bullish" or s.score < 2:
                         continue
-
-                    tags = extract_tags(title, summary, content_text)
                     rationale = {
                         "hits_bull": s.hits_bull,
                         "hits_bear": s.hits_bear,

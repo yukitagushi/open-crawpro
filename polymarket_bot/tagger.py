@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 
 TAG_RULES: dict[str, list[str]] = {
+    # Assets / topics
     "BTC": ["btc", "bitcoin", "ビットコイン"],
     "ETH": ["eth", "ethereum", "イーサ", "イーサリアム"],
     "マクロ": ["cpi", "inflation", "rate", "fomc", "fed", "利上げ", "金利", "インフレ"],
@@ -18,10 +19,20 @@ TAG_RULES: dict[str, list[str]] = {
     "取引所": ["exchange", "binance", "coinbase", "取引所"],
     "DeFi": ["defi", "dex", "uniswap", "aave"],
     "ステーブル": ["usdc", "usdt", "stablecoin", "ステーブル"],
+
+    # Technical indicators / chart methods
+    "RSI": ["rsi"],
+    "MACD": ["macd"],
+    "ボリンジャー": ["bollinger", "ボリンジャ"],
+    "移動平均": ["moving average", "ma ", "ma:", "ema", "sma", "移動平均"],
+    "出来高": ["volume", "出来高"],
+    "サポレジ": ["support", "resistance", "サポート", "レジスタンス", "サポレジ"],
+    "トレンドライン": ["trendline", "トレンドライン"],
+    "ブレイクアウト": ["breakout", "ブレイク"],
 }
 
 
-def extract_tags(title: str | None, summary: str | None, content_text: str | None, *, max_tags: int = 6) -> list[str]:
+def extract_tags(title: str | None, summary: str | None, content_text: str | None, *, max_tags: int = 10) -> list[str]:
     text = "\n".join([title or "", summary or "", content_text or ""]).lower()
     if not text.strip():
         return []
