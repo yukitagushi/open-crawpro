@@ -82,39 +82,74 @@ def _looks_like_15min(event: Dict[str, Any]) -> bool:
     return False
 
 
-def extract_yes_no_token_ids(market: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    """Try to extract YES/NO token ids from a market object.
+def extract_outcome_token_ids(market: Dict[str, Any]) -> Dict[str, str]:
+    """Extract mapping {outcome_name -> token_id} from a Gamma market object.
 
-    Gamma markets often include an "outcomes" list with token ids.
-    We handle common shapes:
-    - outcomes: [{name: "Yes", tokenId: "..."}, {name: "No", tokenId: "..."}]
+    Gamma schema is inconsistent across markets. We try multiple shapes:
+    - outcomes: [{name/outcome: "Yes", tokenId/token_id: "..."}, ...]
     - outcomeTokens: [{outcome: "Yes", token_id: "..."}, ...]
+    - outcomes: "[\"Up\",\"Down\"]" + clobTokenIds: "[\"...\",\"...\"]" (both JSON strings)
+
+    Returned dict keys are the *original* outcome strings as provided by Gamma.
     """
+
+    import json
+
+    out: Dict[str, str] = {}
+
+    outcomes_obj = market.get("outcomes") or market.get("outcomeTokens")
+
+    # Case 1: list of dicts with token ids
+    if isinstance(outcomes_obj, list):
+        for o in outcomes_obj:
+            if not isinstance(o, dict):
+                continue
+            name = o.get("name") or o.get("outcome")
+            token = o.get("tokenId") or o.get("token_id") or o.get("tokenIdHex")
+            if not isinstance(name, str):
+                continue
+            token_s = _as_str(token)
+            if token_s is None:
+                continue
+            out[name] = token_s
+
+    # Case 2: JSON-encoded strings: outcomes + clobTokenIds
+    if not out:
+        outcomes_s = market.get("outcomes")
+        token_ids_s = market.get("clobTokenIds") or market.get("clob_token_ids")
+        if isinstance(outcomes_s, str) and isinstance(token_ids_s, str):
+            try:
+                outcomes = json.loads(outcomes_s)
+                token_ids = json.loads(token_ids_s)
+                if isinstance(outcomes, list) and isinstance(token_ids, list) and len(outcomes) == len(token_ids):
+                    for name, tid in zip(outcomes, token_ids):
+                        if isinstance(name, str) and _as_str(tid):
+                            out[name] = str(tid)
+            except Exception:
+                pass
+
+    # Case 3: Some schemas store token ids directly
+    if not out:
+        yes = _as_str(market.get("yes_token_id") or market.get("yesTokenId"))
+        no = _as_str(market.get("no_token_id") or market.get("noTokenId"))
+        if yes:
+            out["Yes"] = yes
+        if no:
+            out["No"] = no
+
+    return out
+
+
+def extract_yes_no_token_ids(market: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """Back-compat helper for YES/NO markets."""
+    m = extract_outcome_token_ids(market)
     yes = None
     no = None
-
-    outcomes = market.get("outcomes") or market.get("outcomeTokens") or []
-    for o in outcomes:
-        if not isinstance(o, dict):
-            continue
-        name = o.get("name") or o.get("outcome")
-        token = o.get("tokenId") or o.get("token_id") or o.get("tokenIdHex")
-        if not isinstance(name, str):
-            continue
-        token_s = _as_str(token)
-        if token_s is None:
-            continue
-        if name.strip().lower() == "yes":
-            yes = token_s
-        elif name.strip().lower() == "no":
-            no = token_s
-
-    # Some schemas store token ids directly
-    if yes is None:
-        yes = _as_str(market.get("yes_token_id") or market.get("yesTokenId"))
-    if no is None:
-        no = _as_str(market.get("no_token_id") or market.get("noTokenId"))
-
+    for k, v in m.items():
+        if k.strip().lower() == "yes":
+            yes = v
+        elif k.strip().lower() == "no":
+            no = v
     return yes, no
 
 

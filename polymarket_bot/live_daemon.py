@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 
 from db_pg import connect, init_db
 from infra import Infra, load_config_from_env
-from gamma import fetch_events, extract_yes_no_token_ids
+from gamma import fetch_events, extract_outcome_token_ids
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("live_daemon")
@@ -57,8 +57,11 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def resolve_yes_token_id(*, market_slug: str, allow_market_id: str) -> tuple[str, str]:
-    """Resolve YES token_id and question via Gamma slug."""
+def resolve_outcome_token_id(*, market_slug: str, allow_market_id: str, outcome_name: str) -> tuple[str, str]:
+    """Resolve outcome token_id and question via Gamma slug.
+
+    outcome_name examples: "Yes", "No", "Up", "Down".
+    """
     evs = fetch_events(limit=1, offset=0, params={"slug": market_slug})
     if not evs or not isinstance(evs[0], dict):
         raise RuntimeError("Could not resolve event via MARKET_SLUG")
@@ -71,10 +74,12 @@ def resolve_yes_token_id(*, market_slug: str, allow_market_id: str) -> tuple[str
         mid = str(m.get("id") or m.get("market_id") or "")
         if mid != str(allow_market_id):
             continue
-        yes, no = extract_yes_no_token_ids(m)
-        if not yes:
-            raise RuntimeError("YES token_id missing")
-        return str(yes), q
+        mp = extract_outcome_token_ids(m)
+        # case-insensitive match
+        for k, v in mp.items():
+            if k.strip().lower() == outcome_name.strip().lower():
+                return str(v), q
+        raise RuntimeError(f"Outcome token_id missing for outcome={outcome_name} (available={list(mp.keys())})")
     raise RuntimeError("Allowlisted market_id not found in resolved slug")
 
 
@@ -105,15 +110,16 @@ def main() -> None:
     infra = Infra(cfg)
     infra.connect()
 
-    yes_token_id, question = resolve_yes_token_id(market_slug=slug, allow_market_id=allow_market_id)
-    logger.info("Resolved market %s: %s (YES token=%s)", allow_market_id, question, yes_token_id)
+    outcome_name = (os.getenv("OUTCOME_NAME") or "Up").strip() or "Up"
+    token_id, question = resolve_outcome_token_id(market_slug=slug, allow_market_id=allow_market_id, outcome_name=outcome_name)
+    logger.info("Resolved market %s: %s (outcome=%s token=%s)", allow_market_id, question, outcome_name, token_id)
 
     last_trade_ts = 0.0
 
     while True:
         started = time.time()
         try:
-            ob = infra.clob.get_order_book(yes_token_id)
+            ob = infra.clob.get_order_book(token_id)
             best_bid = float(ob.bids[0].price) if getattr(ob, "bids", None) else None
             best_ask = float(ob.asks[0].price) if getattr(ob, "asks", None) else None
             mid = None
@@ -129,7 +135,7 @@ def main() -> None:
                     """,
                     (
                         str(allow_market_id),
-                        str(yes_token_id),
+                        str(token_id),
                         best_bid,
                         best_ask,
                         mid,
@@ -202,13 +208,13 @@ def main() -> None:
                         INSERT INTO orders(client_order_id, condition_id, token_id, side, price, size, status, raw_request_json)
                         VALUES (%s,%s,%s,'buy',%s,%s,'created',%s::jsonb)
                         """,
-                        (client_order_id, str(allow_market_id), str(yes_token_id), float(price), float(size), json.dumps(evidence)),
+                        (client_order_id, str(allow_market_id), str(token_id), float(price), float(size), json.dumps(evidence)),
                     )
 
                     try:
                         from py_clob_client.clob_types import OrderArgs  # type: ignore
 
-                        order_args = OrderArgs(token_id=str(yes_token_id), price=float(price), size=float(size), side="buy")
+                        order_args = OrderArgs(token_id=str(token_id), price=float(price), size=float(size), side="buy")
                         order = infra.clob.create_order(order_args)
                         resp = infra.clob.post_order(order, orderType="FOK", post_only=False)
 
