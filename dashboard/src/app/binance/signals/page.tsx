@@ -18,7 +18,11 @@ function fmt(ts: any) {
   return s.replace('T', ' ').replace('Z', '');
 }
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: { page?: string; pageSize?: string; order?: string };
+}) {
   if (!hasDatabase()) {
     return (
       <main className="container">
@@ -33,12 +37,18 @@ export default async function Page() {
     );
   }
 
+  const pageSize = Math.max(5, Math.min(100, parseInt(searchParams?.pageSize || '10', 10) || 10));
+  const page = Math.max(0, parseInt(searchParams?.page || '0', 10) || 0);
+  const order = (searchParams?.order || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+  const offset = page * pageSize;
+
   const rows = await sql<Row>(
     `
     SELECT created_at, symbol, kind, score, evidence_json
     FROM binance_signal
-    ORDER BY created_at DESC
-    LIMIT 200
+    ORDER BY created_at ${order === 'asc' ? 'ASC' : 'DESC'}
+    LIMIT ${pageSize}
+    OFFSET ${offset}
     `
   );
 
@@ -51,11 +61,22 @@ export default async function Page() {
         <div style={{ marginTop: 8 }}>
           <Link href="/">← 戻る</Link>
           <span className="muted"> ・ </span>
-          <Link href="/binance/market">市場</Link>
-          <span className="muted"> ・ </span>
           <Link href="/binance/market">市場/指標</Link>
           <span className="muted"> ・ </span>
           <Link href="/binance/orders">注文</Link>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+          <div className="muted">page: {page + 1} / size: {pageSize} / order: {order.toUpperCase()}</div>
+          <Link className="toplink" href={`/binance/signals?page=${Math.max(0, page - 1)}&pageSize=${pageSize}&order=${order}`}>
+            ← Prev
+          </Link>
+          <Link className="toplink" href={`/binance/signals?page=${page + 1}&pageSize=${pageSize}&order=${order}`}>
+            Next →
+          </Link>
+          <Link className="toplink" href={`/binance/signals?page=0&pageSize=${pageSize}&order=${order === 'asc' ? 'desc' : 'asc'}`}>
+            並び替え: {order === 'asc' ? '新→古' : '古→新'}
+          </Link>
         </div>
       </div>
 

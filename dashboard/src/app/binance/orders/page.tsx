@@ -5,7 +5,11 @@ import { hasDatabase, sql } from '@/lib/db';
 import { AutoReload } from '../../_components/AutoReload';
 import { OrdersTable, type Row } from './client';
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: { page?: string; pageSize?: string; order?: string; showErrors?: string };
+}) {
   if (!hasDatabase()) {
     return (
       <main className="container">
@@ -20,13 +24,20 @@ export default async function Page() {
     );
   }
 
+  const pageSize = Math.max(5, Math.min(100, parseInt(searchParams?.pageSize || '10', 10) || 10));
+  const page = Math.max(0, parseInt(searchParams?.page || '0', 10) || 0);
+  const order = (searchParams?.order || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+  const offset = page * pageSize;
+
   const rows = await sql<Row>(
     `
     SELECT created_at, symbol, side, status, quote_qty, base_qty, price,
            take_profit_price, stop_loss_price, stop_limit_price, oco_order_list_id, error
     FROM binance_order
-    ORDER BY created_at DESC
-    LIMIT 200
+    ORDER BY created_at ${order === 'asc' ? 'ASC' : 'DESC'}
+    LIMIT ${pageSize}
+    OFFSET ${offset}
     `
   );
 
@@ -39,11 +50,22 @@ export default async function Page() {
         <div style={{ marginTop: 8 }}>
           <Link href="/">← 戻る</Link>
           <span className="muted"> ・ </span>
-          <Link href="/binance/market">市場</Link>
-          <span className="muted"> ・ </span>
           <Link href="/binance/market">市場/指標</Link>
           <span className="muted"> ・ </span>
           <Link href="/binance/signals">シグナル</Link>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+          <div className="muted">page: {page + 1} / size: {pageSize} / order: {order.toUpperCase()}</div>
+          <Link className="toplink" href={`/binance/orders?page=${Math.max(0, page - 1)}&pageSize=${pageSize}&order=${order}`}>
+            ← Prev
+          </Link>
+          <Link className="toplink" href={`/binance/orders?page=${page + 1}&pageSize=${pageSize}&order=${order}`}>
+            Next →
+          </Link>
+          <Link className="toplink" href={`/binance/orders?page=0&pageSize=${pageSize}&order=${order === 'asc' ? 'desc' : 'asc'}`}>
+            並び替え: {order === 'asc' ? '新→古' : '古→新'}
+          </Link>
         </div>
       </div>
 
