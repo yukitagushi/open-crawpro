@@ -226,3 +226,20 @@ CREATE TABLE IF NOT EXISTS signal_market_snapshot (
 );
 
 CREATE INDEX IF NOT EXISTS idx_signal_snapshot_fetched ON signal_market_snapshot(fetched_at);
+
+-- --------------------
+-- Market price time series (for indicators)
+-- --------------------
+
+CREATE TABLE IF NOT EXISTS market_price_point (
+  id BIGSERIAL PRIMARY KEY,
+  market_id TEXT NOT NULL,
+  token_id TEXT NOT NULL,
+  best_bid DOUBLE PRECISION,
+  best_ask DOUBLE PRECISION,
+  mid DOUBLE PRECISION,
+  snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_json JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_mpp_token_time ON market_price_point(token_id, snapshot_at);

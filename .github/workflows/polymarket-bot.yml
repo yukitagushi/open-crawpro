@@ -43,8 +43,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
           # Bot knobs (safe defaults)
-          DRY_RUN: "false"
-          ENABLE_LIVE_TRADING: "true"  # live trading enabled (user-approved)
+          DRY_RUN: "true"  # Actions = info collection only
+          ENABLE_LIVE_TRADING: "false"  # trade is handled by resident daemon
           DAILY_NOTIONAL_CAP_USD: "20"
           MAX_NOTIONAL_USD: "1.0"
           MAX_PRICE: "0.99"
