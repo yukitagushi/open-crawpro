@@ -199,8 +199,6 @@ def main() -> None:
                     for pid, sym, entry_base_qty in due:
                         step, tick = sym_filters.get(sym)
                         # format quantity with step size
-                        from decimal import Decimal, ROUND_DOWN
-
                         qty = Decimal(str(entry_base_qty or 0))
                         if qty <= 0:
                             continue
