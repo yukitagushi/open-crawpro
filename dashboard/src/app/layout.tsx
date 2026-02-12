@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/signals" className="toplink">シグナル</Link>
               <Link href="/analytics" className="toplink">分析</Link>
               <Link href="/binance/orders" className="toplink">Binance</Link>
+              <Link href="/binance/pnl" className="toplink">Binance収益</Link>
               <a href="/api/health" className="toplink">ヘルス</a>
             </div>
           </div>
